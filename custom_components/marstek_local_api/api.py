@@ -379,14 +379,22 @@ class MarstekUDPClient:
                         timeout=True,
                         error="timeout",
                     )
-                    _LOGGER.warning(
-                        "Command %s timed out after %ss (attempt %d/%d, host=%s)",
-                        method,
-                        effective_timeout,
-                        attempt,
-                        attempt_limit,
-                        self.host,
-                    )
+                    if attempt >= attempt_limit:
+                        _LOGGER.error(
+                            "Command %s failed after %d attempts (host=%s)",
+                            method,
+                            attempt_limit,
+                            self.host,
+                        )
+                    else:
+                        _LOGGER.debug(
+                            "Command %s timed out after %ss (attempt %d/%d, host=%s)",
+                            method,
+                            effective_timeout,
+                            attempt,
+                            attempt_limit,
+                            self.host,
+                        )
                     last_exception = None
                 except MarstekAPIError:
                     # Error already recorded in the if "error" block above

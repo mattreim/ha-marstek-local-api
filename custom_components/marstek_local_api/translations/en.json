@@ -3,25 +3,25 @@
     "step": {
       "user": {
         "title": "Marstek Local API",
-        "description": "Set up Marstek device using Local API"
+        "description": "Device setup for the local API"
       },
       "discovery": {
-        "title": "Discovered Devices",
+        "title": "Discovered devices",
         "description": "Select a discovered Marstek device or choose manual entry",
         "data": {
           "device": "Device"
         }
       },
       "manual": {
-        "title": "Manual Configuration",
+        "title": "Manual configuration",
         "description": "Enter the IP address of your Marstek device",
         "data": {
-          "host": "IP Address",
+          "host": "IP address",
           "port": "Port"
         }
       },
       "discovery_confirm": {
-        "title": "Discovered Marstek Device",
+        "title": "Discovered Marstek device",
         "description": "A Marstek device ({name}) was discovered on your network. Do you want to add it to Home Assistant?"
       }
     },
@@ -39,14 +39,14 @@
   "options": {
     "step": {
       "init": {
-        "title": "Marstek Local API Options",
+        "title": "Marstek Local API options",
         "description": "Select what you want to configure",
         "data": {
           "action": "Action"
         }
       },
       "scan_interval": {
-        "title": "Update communication timings and thresholds",
+        "title": "Adjust communication timings and thresholds",
         "description": "Adjust how frequently Home Assistant polls the device and how it handles communication issues.",
         "data": {
           "scan_interval": "Fast update interval (seconds)",
@@ -59,9 +59,9 @@
           "poll_mode": "Poll operating mode (ES.GetMode)"
         },
         "data_description": {
-          "scan_interval": "Base polling interval for real-time sensors (ES, EM, PV).",
-          "command_timeout": "How long to wait for a device response before retrying.",
-          "command_max_attempts": "How many times to retry a command before giving up.",
+          "scan_interval": "Base polling interval for real-time sensors (ES, EM, PV)",
+          "command_timeout": "How long to wait for a device response before retrying",
+          "command_max_attempts": "How many times to retry a command before giving up",
           "command_min_interval": "Minimum time (in seconds) between two consecutive frames sent to the battery. Increase if the device struggles with rapid commands (e.g. during mode changes). Default: 0.5 s.",
           "stale_data_threshold": "How old data can be (in seconds) before entities show as unavailable. Recommended: at least twice the slow update interval (default: 2 × 1200 = 2400 s). Default: 3600 s (1 hour).",
           "medium_interval_secs": "How often battery status and operating mode are polled (Bat.GetStatus, ES.GetMode). Default: 300 s (5 min).",
@@ -70,7 +70,7 @@
         }
       },
       "battery_settings": {
-        "title": "Battery settings",
+        "title": "Battery settings (DOD and usable capacity)",
         "description": "These values are informational only and do not configure the device. Set them to match what you have configured in the Marstek app.",
         "data": {
           "dod_percent": "Depth of Discharge (%)"
@@ -80,7 +80,7 @@
         }
       },
       "rename_device": {
-        "title": "Rename Device",
+        "title": "Rename device",
         "description": "Update how the device appears in Home Assistant",
         "data": {
           "device": "Device",
@@ -88,24 +88,24 @@
         }
       },
       "remove_device": {
-        "title": "Remove Device",
+        "title": "Remove device",
         "description": "Select a device to remove from this integration",
         "data": {
           "device": "Device"
         }
       },
       "add_device": {
-        "title": "Add Device",
+        "title": "Add device",
         "description": "Select a discovered device or choose manual entry",
         "data": {
           "device": "Device"
         }
       },
       "add_device_manual": {
-        "title": "Manual Device Entry",
+        "title": "Manual device entry",
         "description": "Enter the connection details for the device",
         "data": {
-          "host": "IP Address",
+          "host": "IP address",
           "port": "Port"
         }
       }

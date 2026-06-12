@@ -106,7 +106,7 @@ class CompatibilityMatrix:
             ("VenusD",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
             ("VenusD",HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1 = ×10)
             ("VenusC",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
-            ("VenusC",HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1 = ×10)
+            ("VenusC",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in deci-°C (÷0.1 = ×10)
             ("VenusE",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
             ("VenusE",HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1 = ×10)
             ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in °C
