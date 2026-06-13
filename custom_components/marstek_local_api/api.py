@@ -46,7 +46,7 @@ _transport_refcounts = {}
 _clients_by_port = {}  # Map port -> list of clients
 
 
-class MarstekUDPClient:
+class MarstekUDPClient: # pylint: disable=too-many-public-methods
     """UDP client for Marstek Local API communication."""
 
     def __init__(

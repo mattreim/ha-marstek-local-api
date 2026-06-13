@@ -36,6 +36,17 @@
       "unknown": "Unknown error occurred during discovery"
     }
   },
+  "selector": {
+    "action": {
+      "options": {
+        "scan_interval": "Adjust communication timings and thresholds",
+        "battery_settings": "Battery settings (DOD and usable capacity)",
+        "rename_device": "Rename a device",
+        "remove_device": "Remove a device",
+        "add_device": "Add a device"
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
@@ -46,7 +57,7 @@
         }
       },
       "scan_interval": {
-        "title": "Adjust communication timings and thresholds",
+        "title": "Communication timings and thresholds",
         "description": "Adjust how frequently Home Assistant polls the device and how it handles communication issues.",
         "data": {
           "scan_interval": "Fast update interval (seconds)",
@@ -70,7 +81,7 @@
         }
       },
       "battery_settings": {
-        "title": "Battery settings (DOD and usable capacity)",
+        "title": "Battery settings",
         "description": "These values are informational only and do not configure the device. Set them to match what you have configured in the Marstek app.",
         "data": {
           "dod_percent": "Depth of Discharge (%)"

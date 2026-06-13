@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 import logging
 
 from homeassistant.components.sensor import (
@@ -31,12 +32,11 @@ from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordin
 
 _LOGGER = logging.getLogger(__name__)
 
-
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MarstekSensorEntityDescription(SensorEntityDescription):
     """Describes Marstek sensor entity."""
 
-    value_fn: Callable[[dict], any] | None = None
+    value_fn: Callable[[dict], Any] | None = None
     available_fn: Callable[[dict], bool] | None = None
     category: str | None = None
 
@@ -751,7 +751,14 @@ async def async_setup_entry(
         # Multi-device mode - create sensors for each device + aggregate sensors
         for mac in coordinator.get_device_macs():
             device_coordinator = coordinator.device_coordinators[mac]
-            device_data = next(d for d in coordinator.devices if (d.get("ble_mac") or d.get("wifi_mac")) == mac)
+            device_data = next(
+                (
+                    d
+                    for d in coordinator.devices
+                    if (d.get("ble_mac") or d.get("wifi_mac")) == mac
+                ),
+                {},
+            )
 
             # Add standard sensors for this device
             for description in SENSOR_TYPES:

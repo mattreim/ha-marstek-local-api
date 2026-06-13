@@ -19,6 +19,7 @@ from .const import (
     MODE_AI,
     MODE_AUTO,
     MODE_MANUAL,
+    MODE_UPS,
     RETRY_DELAY,
 )
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
@@ -45,6 +46,8 @@ def _mode_state_from_config(mode: str, config: dict) -> dict:
         state["ai_cfg"] = dict(config["ai_cfg"])
     elif mode == MODE_MANUAL and "manual_cfg" in config:
         state["manual_cfg"] = dict(config["manual_cfg"])
+    elif mode == MODE_UPS and "ups_cfg" in config:
+        state["ups_cfg"] = dict(config["ups_cfg"])
 
     return state
 
@@ -64,7 +67,14 @@ async def async_setup_entry(
         # Multi-device mode - create button entities for each device
         for mac in coordinator.get_device_macs():
             device_coordinator = coordinator.device_coordinators[mac]
-            device_data = next(d for d in coordinator.devices if (d.get("ble_mac") or d.get("wifi_mac")) == mac)
+            device_data = next(
+                (
+                    d
+                    for d in coordinator.devices
+                    if (d.get("ble_mac") or d.get("wifi_mac")) == mac
+                ),
+                {},
+            )
 
             entities.extend([
                 MarstekMultiDeviceAutoModeButton(
@@ -85,6 +95,12 @@ async def async_setup_entry(
                     device_mac=mac,
                     device_data=device_data,
                 ),
+                MarstekMultiDeviceUPSModeButton(
+                    coordinator=coordinator,
+                    device_coordinator=device_coordinator,
+                    device_mac=mac,
+                    device_data=device_data,
+                ),
             ])
     else:
         # Single device mode
@@ -92,6 +108,7 @@ async def async_setup_entry(
             MarstekAutoModeButton(coordinator, entry),
             MarstekAIModeButton(coordinator, entry),
             MarstekManualModeButton(coordinator, entry),
+            MarstekUPSModeButton(coordinator, entry),
         ])
 
     async_add_entities(entities)
@@ -207,6 +224,11 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
                 "mode": MODE_MANUAL,
                 "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),
             }
+        if self._mode == MODE_UPS:
+            return {
+                "mode": MODE_UPS,
+                "ups_cfg": {"enable": 1},
+            }
 
         return {}
 
@@ -253,6 +275,18 @@ class MarstekManualModeButton(MarstekModeButton):
     ) -> None:
         """Initialize the Manual mode button."""
         super().__init__(coordinator, entry, MODE_MANUAL, "Manual mode", "mdi:calendar-clock")
+
+
+class MarstekUPSModeButton(MarstekModeButton):
+    """Button to switch to UPS mode."""
+
+    def __init__(
+        self,
+        coordinator: MarstekDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the UPS mode button."""
+        super().__init__(coordinator, entry, MODE_UPS, "UPS mode", "mdi:power-plug")
 
 
 class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
@@ -395,6 +429,11 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
                 "mode": MODE_MANUAL,
                 "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),
             }
+        if self._mode == MODE_UPS:
+            return {
+                "mode": MODE_UPS,
+                "ups_cfg": {"enable": 1},
+            }
 
         return {}
 
@@ -465,4 +504,20 @@ class MarstekMultiDeviceManualModeButton(MarstekMultiDeviceModeButton):
         """Initialize the Manual mode button."""
         super().__init__(
             coordinator, device_coordinator, device_mac, device_data, MODE_MANUAL, "Manual mode", "mdi:calendar-clock"
+        )
+
+
+class MarstekMultiDeviceUPSModeButton(MarstekMultiDeviceModeButton):
+    """Button to switch to UPS mode in multi-device mode."""
+
+    def __init__(
+        self,
+        coordinator: MarstekMultiDeviceCoordinator,
+        device_coordinator: MarstekDataUpdateCoordinator,
+        device_mac: str,
+        device_data: dict,
+    ) -> None:
+        """Initialize the UPS mode button."""
+        super().__init__(
+            coordinator, device_coordinator, device_mac, device_data, MODE_UPS, "UPS mode", "mdi:power-plug"
         )

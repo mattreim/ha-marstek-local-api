@@ -36,6 +36,17 @@
       "unknown": "Unbekannter Fehler während der Entdeckung aufgetreten"
     }
   },
+  "selector": {
+    "action": {
+      "options": {
+        "scan_interval": "Kommunikationszeitpunkte und Schwellenwerte anpassen",
+        "battery_settings": "Akkueinstellungen (DOD und nutzbare Kapazität)",
+        "rename_device": "Gerät umbenennen",
+        "remove_device": "Gerät entfernen",
+        "add_device": "Gerät hinzufügen"
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
@@ -46,7 +57,7 @@
         }
       },
       "scan_interval": {
-        "title": "Kommunikationszeitpunkte und Schwellenwerte anpassen",
+        "title": "Kommunikationszeitpunkte und Schwellenwerte",
         "description": "Wählen Sie aus, wie häufig Home Assistant das Gerät abfragt und wie es Kommunikationsprobleme behandelt.",
         "data": {
           "scan_interval": "Schnelles Aktualisierungsintervall (Sekunden)",
@@ -70,7 +81,7 @@
         }
       },
       "battery_settings": {
-        "title": "Akkueinstellungen (DOD und nutzbare Kapazität)",
+        "title": "Akkueinstellungen",
         "description": "Diese Werte dienen nur zur Information und konfigurieren das Gerät nicht. Stellen Sie sie so ein, dass sie mit den Einstellungen in der Marstek-App übereinstimmen.",
         "data": {
           "dod_percent": "Entladetiefe (%)"
