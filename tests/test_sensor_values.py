@@ -337,12 +337,6 @@ class TestWiFiSensors:
 # ---------------------------------------------------------------------------
 
 class TestDeviceSensors:
-    def test_model(self, sensor_map, venus_a_coordinator_data):
-        assert sensor_map["device_model"].value_fn(venus_a_coordinator_data) == "Venus A"
-
-    def test_firmware_version(self, sensor_map, venus_a_coordinator_data):
-        assert sensor_map["firmware_version"].value_fn(venus_a_coordinator_data) == 147
-
     def test_ble_mac(self, sensor_map, venus_a_coordinator_data):
         assert sensor_map["ble_mac"].value_fn(venus_a_coordinator_data) == "bc2a33600dca"
 

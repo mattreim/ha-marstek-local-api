@@ -23,7 +23,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -39,6 +39,7 @@ class MarstekSensorEntityDescription(SensorEntityDescription):
     value_fn: Callable[[dict], Any] | None = None
     available_fn: Callable[[dict], bool] | None = None
     category: str | None = None
+    entity_category: EntityCategory | None = None
 
 
 def _wh_to_kwh(value: float | int | None) -> float | None:
@@ -424,67 +425,63 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.get("wifi", {}).get("rssi"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_ssid",
         name="WiFi SSID",
         value_fn=lambda data: data.get("wifi", {}).get("ssid"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_ip",
         name="WiFi IP address",
         value_fn=lambda data: data.get("wifi", {}).get("sta_ip"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_gateway",
         name="WiFi gateway",
         value_fn=lambda data: data.get("wifi", {}).get("sta_gate"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_subnet",
         name="WiFi subnet mask",
         value_fn=lambda data: data.get("wifi", {}).get("sta_mask"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_dns",
         name="WiFi DNS server",
         value_fn=lambda data: data.get("wifi", {}).get("sta_dns"),
         category="wifi",
-    ),
-    # Device info sensors
-    MarstekSensorEntityDescription(
-        key="device_model",
-        name="Model",
-        value_fn=lambda data: data.get("device", {}).get("device"),
-        category="device",
-    ),
-    MarstekSensorEntityDescription(
-        key="firmware_version",
-        name="Firmware version",
-        value_fn=lambda data: data.get("device", {}).get("ver"),
-        category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="ble_mac",
         name="Bluetooth MAC",
         value_fn=lambda data: data.get("device", {}).get("ble_mac"),
         category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_mac",
         name="WiFi MAC",
         value_fn=lambda data: data.get("device", {}).get("wifi_mac"),
         category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="device_ip",
         name="IP address",
         value_fn=lambda data: data.get("device", {}).get("ip"),
         category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     # Diagnostic sensors (Design Doc §556-576, §679-688)
     MarstekSensorEntityDescription(
@@ -495,6 +492,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.get("_diagnostic", {}).get("last_message_seconds"),
         category="_diagnostic",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     # Operating mode
     MarstekSensorEntityDescription(
@@ -841,6 +839,7 @@ class MarstekSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_has_entity_name = True
+        self._attr_entity_category = entity_description.entity_category
         self._energy_state: dict = {"last_valid": None, "drop_count": 0}
         device_mac = entry.data.get("ble_mac") or entry.data.get("wifi_mac")
         self._attr_unique_id = f"{device_mac}_{entity_description.key}"
