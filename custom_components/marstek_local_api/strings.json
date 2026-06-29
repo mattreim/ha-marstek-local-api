@@ -3,25 +3,25 @@
     "step": {
       "user": {
         "title": "Marstek Local API",
-        "description": "Set up Marstek device using Local API"
+        "description": "Device setup for the local API"
       },
       "discovery": {
-        "title": "Discovered Devices",
+        "title": "Discovered devices",
         "description": "Select a discovered Marstek device or choose manual entry",
         "data": {
           "device": "Device"
         }
       },
       "manual": {
-        "title": "Manual Configuration",
+        "title": "Manual configuration",
         "description": "Enter the IP address of your Marstek device",
         "data": {
-          "host": "IP Address",
+          "host": "IP address",
           "port": "Port"
         }
       },
       "discovery_confirm": {
-        "title": "Discovered Marstek Device",
+        "title": "Discovered Marstek device",
         "description": "A Marstek device ({name}) was discovered on your network. Do you want to add it to Home Assistant?"
       }
     },
@@ -36,24 +36,62 @@
       "unknown": "Unknown error occurred during discovery"
     }
   },
+  "selector": {
+    "action": {
+      "options": {
+        "scan_interval": "Adjust communication timings and thresholds",
+        "battery_settings": "Battery settings",
+        "rename_device": "Rename a device",
+        "remove_device": "Remove a device",
+        "add_device": "Add a device"
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
-        "title": "Marstek Local API Options",
+        "title": "Marstek Local API options",
         "description": "Select what you want to configure",
         "data": {
           "action": "Action"
         }
       },
       "scan_interval": {
-        "title": "Update Interval",
-        "description": "Configure how often data is refreshed",
+        "title": "Communication timings and thresholds",
+        "description": "Adjust how frequently Home Assistant polls the device and how it handles communication issues.",
         "data": {
-          "scan_interval": "Update Interval (seconds)"
+          "scan_interval": "Fast update interval (seconds)",
+          "command_timeout": "Command timeout (seconds)",
+          "command_max_attempts": "Max retry attempts",
+          "command_min_interval": "Minimum interval between frames (seconds)",
+          "stale_data_threshold": "Stale data threshold (seconds)",
+          "medium_interval_secs": "Medium update interval (seconds)",
+          "slow_interval_secs": "Slow update interval (seconds)",
+          "poll_mode": "Poll operating mode (ES.GetMode)"
+        },
+        "data_description": {
+          "scan_interval": "Base polling interval for real-time sensors (ES, EM, PV)",
+          "command_timeout": "How long to wait for a device response before retrying",
+          "command_max_attempts": "How many times to retry a command before giving up",
+          "command_min_interval": "Minimum time (in seconds) between two consecutive frames sent to the battery. Increase if the device struggles with rapid commands (e.g. during mode changes). Default: 0.5 s.",
+          "stale_data_threshold": "How old data can be (in seconds) before entities show as unavailable. Recommended: at least twice the slow update interval (default: 2 × 1200 = 2400 s). Default: 3600 s (1 hour).",
+          "medium_interval_secs": "How often battery status and operating mode are polled (Bat.GetStatus, ES.GetMode). Default: 300 s (5 min).",
+          "slow_interval_secs": "How often static device info is polled (device, Wi-Fi, BLE). Default: 1200 s (20 min).",
+          "poll_mode": "When enabled, Home Assistant polls the device for operating mode via ES.GetMode on the medium interval. Disable if you observe unexpected configuration resets when ES.GetMode is polled. Default: enabled."
+        }
+      },
+      "battery_settings": {
+        "title": "Battery settings",
+        "description": "These values are informational only and do not configure the device. Set them to match what you have configured in the Marstek app.",
+        "data": {
+          "dod_percent": "Depth of Discharge (%)"
+        },
+        "data_description": {
+          "dod_percent": "Maximum percentage of rated capacity the battery can use (e.g. 80 means it stops at 20% SOC). Must match your Marstek app setting — this does not change the device configuration."
         }
       },
       "rename_device": {
-        "title": "Rename Device",
+        "title": "Rename device",
         "description": "Update how the device appears in Home Assistant",
         "data": {
           "device": "Device",
@@ -61,24 +99,24 @@
         }
       },
       "remove_device": {
-        "title": "Remove Device",
+        "title": "Remove device",
         "description": "Select a device to remove from this integration",
         "data": {
           "device": "Device"
         }
       },
       "add_device": {
-        "title": "Add Device",
+        "title": "Add device",
         "description": "Select a discovered device or choose manual entry",
         "data": {
           "device": "Device"
         }
       },
       "add_device_manual": {
-        "title": "Manual Device Entry",
+        "title": "Manual device entry",
         "description": "Enter the connection details for the device",
         "data": {
-          "host": "IP Address",
+          "host": "IP address",
           "port": "Port"
         }
       }

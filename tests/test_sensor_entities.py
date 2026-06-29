@@ -561,9 +561,9 @@ class TestTotalGridExportGlitchOnSensor:
 
     def test_normal_sequence_passes_through(self):
         sensor, coord = self._make_sensor(53549)
-        assert sensor.native_value == pytest.approx(53.549)
+        assert sensor.native_value == pytest.approx(53.55)
         coord.data = {"es": {"total_grid_output_energy": 53957}}
-        assert sensor.native_value == pytest.approx(53.957)
+        assert sensor.native_value == pytest.approx(53.96)
 
     def test_single_glitch_returns_none(self):
         """Firmware bug: value drops from ~53.957 kWh to 0.199 kWh for one poll."""
@@ -579,4 +579,4 @@ class TestTotalGridExportGlitchOnSensor:
         coord.data = {"es": {"total_grid_output_energy": 199}}
         _ = sensor.native_value  # glitch → None
         coord.data = {"es": {"total_grid_output_energy": 53961}}
-        assert sensor.native_value == pytest.approx(53.961)
+        assert sensor.native_value == pytest.approx(53.96)

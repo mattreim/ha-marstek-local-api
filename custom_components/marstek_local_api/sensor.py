@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 import logging
 
 from homeassistant.components.sensor import (
@@ -22,7 +23,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -31,14 +32,21 @@ from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordin
 
 _LOGGER = logging.getLogger(__name__)
 
-
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class MarstekSensorEntityDescription(SensorEntityDescription):
     """Describes Marstek sensor entity."""
 
-    value_fn: Callable[[dict], any] | None = None
+    value_fn: Callable[[dict], Any] | None = None
     available_fn: Callable[[dict], bool] | None = None
     category: str | None = None
+    entity_category: EntityCategory | None = None
+
+
+def _round_value(value: float | None) -> float | None:
+    """Round a value to one decimal place."""
+    if value is None:
+        return None
+    return round(value, 2)
 
 
 def _wh_to_kwh(value: float | int | None) -> float | None:
@@ -46,9 +54,14 @@ def _wh_to_kwh(value: float | int | None) -> float | None:
     if value is None:
         return None
     try:
-        return float(value) / 1000
+        return _round_value(float(value) / 1000)
     except (TypeError, ValueError):
         return None
+
+
+def _10wh_to_kwh(value: float | int | None) -> float | None:
+    """Convert a raw value in 10-watt-hour units to kilowatt-hours."""
+    return _wh_to_kwh(value * 10 if value is not None else None)
 
 
 def _filter_energy_glitch(
@@ -148,7 +161,7 @@ def _time_to_full(data: dict) -> float | None:
     if power_w is None or power_w <= 0:
         return None
     try:
-        return energy_before_full_kwh * 1000 / power_w * 60
+        return _round_value(energy_before_full_kwh * 1000 / power_w * 60)
     except (TypeError, ValueError, ZeroDivisionError):
         return None
 
@@ -160,7 +173,7 @@ def _time_to_dod(data: dict) -> float | None:
     if power_w is None or power_w >= 0:
         return None
     try:
-        return energy_before_dod_wh / (-power_w) * 60
+        return _round_value(energy_before_dod_wh / (-power_w) * 60)
     except (TypeError, ValueError, ZeroDivisionError):
         return None
 
@@ -177,7 +190,7 @@ def _usable_soc(data: dict) -> float | None:
         return None
     try:
         min_soc = 100 - dod
-        return max(0.0, min(100.0, (float(soc) - min_soc) / dod * 100))
+        return _round_value(max(0.0, min(100.0, (float(soc) - min_soc) / dod * 100)))
     except (TypeError, ValueError):
         return None
 
@@ -348,7 +361,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _wh_to_kwh(data.get("es", {}).get("total_pv_energy")),
+        value_fn=lambda data: _10wh_to_kwh((data.get("es") or {}).get("total_pv_energy")),
         category="es",
     ),
     MarstekSensorEntityDescription(
@@ -424,67 +437,63 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.get("wifi", {}).get("rssi"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_ssid",
         name="WiFi SSID",
         value_fn=lambda data: data.get("wifi", {}).get("ssid"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_ip",
         name="WiFi IP address",
         value_fn=lambda data: data.get("wifi", {}).get("sta_ip"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_gateway",
         name="WiFi gateway",
         value_fn=lambda data: data.get("wifi", {}).get("sta_gate"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_subnet",
         name="WiFi subnet mask",
         value_fn=lambda data: data.get("wifi", {}).get("sta_mask"),
         category="wifi",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_dns",
         name="WiFi DNS server",
         value_fn=lambda data: data.get("wifi", {}).get("sta_dns"),
         category="wifi",
-    ),
-    # Device info sensors
-    MarstekSensorEntityDescription(
-        key="device_model",
-        name="Model",
-        value_fn=lambda data: data.get("device", {}).get("device"),
-        category="device",
-    ),
-    MarstekSensorEntityDescription(
-        key="firmware_version",
-        name="Firmware version",
-        value_fn=lambda data: data.get("device", {}).get("ver"),
-        category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="ble_mac",
         name="Bluetooth MAC",
         value_fn=lambda data: data.get("device", {}).get("ble_mac"),
         category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="wifi_mac",
         name="WiFi MAC",
         value_fn=lambda data: data.get("device", {}).get("wifi_mac"),
         category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     MarstekSensorEntityDescription(
         key="device_ip",
         name="IP address",
         value_fn=lambda data: data.get("device", {}).get("ip"),
         category="device",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     # Diagnostic sensors (Design Doc §556-576, §679-688)
     MarstekSensorEntityDescription(
@@ -495,6 +504,7 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: data.get("_diagnostic", {}).get("last_message_seconds"),
         category="_diagnostic",
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     # Operating mode
     MarstekSensorEntityDescription(
@@ -685,7 +695,7 @@ AGGREGATE_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _wh_to_kwh(data.get("aggregates", {}).get("total_pv_energy")),
+        value_fn=lambda data: _10wh_to_kwh((data.get("aggregates") or {}).get("total_pv_energy")),
         category="aggregates",
     ),
     MarstekSensorEntityDescription(
@@ -751,7 +761,14 @@ async def async_setup_entry(
         # Multi-device mode - create sensors for each device + aggregate sensors
         for mac in coordinator.get_device_macs():
             device_coordinator = coordinator.device_coordinators[mac]
-            device_data = next(d for d in coordinator.devices if (d.get("ble_mac") or d.get("wifi_mac")) == mac)
+            device_data = next(
+                (
+                    d
+                    for d in coordinator.devices
+                    if (d.get("ble_mac") or d.get("wifi_mac")) == mac
+                ),
+                {},
+            )
 
             # Add standard sensors for this device
             for description in SENSOR_TYPES:
@@ -834,6 +851,7 @@ class MarstekSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_has_entity_name = True
+        self._attr_entity_category = entity_description.entity_category
         self._energy_state: dict = {"last_valid": None, "drop_count": 0}
         device_mac = entry.data.get("ble_mac") or entry.data.get("wifi_mac")
         self._attr_unique_id = f"{device_mac}_{entity_description.key}"

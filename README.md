@@ -22,11 +22,11 @@ Home Assistant integration that talks directly to Marstek Venus A/C/D/E batterie
 ### Via HACS
 1. Click this button:
 
-[![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Flodesirat&repository=ha-marstek-local-api&category=integration)
+[![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mattreim&repository=ha-marstek-local-api&category=integration)
 
 Or:
 1. Open **HACS → Integrations → Custom repositories**.
-2. Add `https://github.com/Flodesirat/ha-marstek-local-api` as an *Integration*.
+2. Add `https://github.com/mattreim/ha-marstek-local-api` as an *Integration*.
 3. Install **Marstek Local API** and restart Home Assistant.
 
 ### Manual copy
@@ -104,8 +104,8 @@ Every sensor listed above also exists in an aggregated form under the **Marstek 
 
 Each battery exposes three button entities for quick mode switching:
 
-- `button.marstek_auto_mode` - Switch to Auto mode
 - `button.marstek_ai_mode` - Switch to AI mode
+- `button.marstek_auto_mode` - Switch to Auto mode
 - `button.marstek_manual_mode` - Switch to Manual mode
 
 The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, or Passive). **Passive mode** requires parameters (power and duration) and can only be activated via the `set_passive_mode` service (see Services section below).
@@ -388,7 +388,7 @@ Live output example:
   Method                 Sent     OK    Loss      Avg      p95      Max  Quality
   ──────────────────────────────────────────────────────────────────────────────
   ES.GetStatus              4      4   0.0%    128ms    145ms    160ms  ████████████████████
-  Bat.GetStatus             4      3  25.0%   112ms    130ms    130ms  ███████████████░░░░░
+  Bat.GetStatus             4      3  25.0%    112ms    130ms    130ms  ███████████████░░░░░
   EM.GetStatus              4      4   0.0%     95ms    110ms    118ms  ████████████████████
   ES.GetMode                4      4   0.0%    102ms    115ms    121ms  ████████████████████
 ```
@@ -428,7 +428,7 @@ MPING 192.168.0.104: method=ES.GetStatus, timeout=2000ms
 response seq=1  time=68.2ms
 response seq=2  time=74.5ms
 response seq=3  time=312.1ms
-timeout    seq=4 (>2000ms)
+timeout  seq=4  (>2000ms)
 response seq=5  time=1419.3ms
 response seq=6  time=71.0ms
 ^C
