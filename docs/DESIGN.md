@@ -17,12 +17,12 @@ Home Assistant integration for Marstek energy storage systems using the official
 
 ```
 marstek_local_api/
-├── __init__.py              # Integration setup, coordinator
-├── manifest.json            # Integration metadata
-├── config_flow.py           # UI configuration flow
-├── const.py                 # Constants and mappings
-├── coordinator.py           # Data update coordinator
-├── api.py                   # Local API client
+├── __init__.py             # Integration setup, coordinator
+├── manifest.json           # Integration metadata
+├── config_flow.py          # UI configuration flow
+├── const.py                # Constants and mappings
+├── coordinator.py          # Data update coordinator
+├── api.py                  # Local API client
 ├── sensor.py               # Sensor platform
 ├── binary_sensor.py        # Binary sensor platform
 ├── switch.py               # Switch platform (future)
@@ -32,32 +32,32 @@ marstek_local_api/
 ### Data Flow
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Home Assistant                                 │
-│                                                 │
-│  ┌─────────────────────────────────────────┐   │
-│  │  MarstekDataUpdateCoordinator           │   │
-│  │  (polls every 30s)                      │   │
-│  │                                         │   │
-│  │  ┌─────────────────────────────────┐   │   │
-│  │  │  MarstekLocalAPI                │   │   │
-│  │  │  - Device discovery (UDP)       │   │   │
-│  │  │  - Multiple method calls        │   │   │
-│  │  │  - Error handling               │   │   │
-│  │  └─────────────────────────────────┘   │   │
-│  └─────────────────────────────────────────┘   │
-│                    │                            │
-│                    ▼                            │
-│  ┌─────────────────────────────────────────┐   │
-│  │  Entities (Sensors, Binary Sensors)     │   │
-│  │  - Battery sensors                      │   │
-│  │  - Grid/CT sensors                      │   │
-│  │  - Energy system sensors                │   │
-│  │  - PV sensors (Venus A/                 │   │
-│  │  - Network sensors                      │   │
-│  │  - Calculated sensors                   │   │
-│  └─────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Home Assistant                             │
+│                                             │
+│  ┌───────────────────────────────────────┐  │
+│  │  MarstekDataUpdateCoordinator         │  │
+│  │  (polls every 30s)                    │  │
+│  │                                       │  │
+│  │  ┌─────────────────────────────────┐  │  │
+│  │  │  MarstekLocalAPI                │  │  │
+│  │  │  - Device discovery (UDP)       │  │  │
+│  │  │  - Multiple method calls        │  │  │
+│  │  │  - Error handling               │  │  │
+│  │  └─────────────────────────────────┘  │  │
+│  └───────────────────────────────────────┘  │
+│                    │                        │
+│                    ▼                        │
+│  ┌───────────────────────────────────────┐  │
+│  │  Entities (Sensors, Binary Sensors)   │  │
+│  │  - Battery sensors                    │  │
+│  │  - Grid/CT sensors                    │  │
+│  │  - Energy system sensors              │  │
+│  │  - PV sensors (Venus A)               │  │
+│  │  - Network sensors                    │  │
+│  │  - Calculated sensors                 │  │
+│  └───────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘
                      │
                      │ JSON/UDP (port 30000+)
                      ▼

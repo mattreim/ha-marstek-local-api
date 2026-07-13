@@ -41,7 +41,6 @@ BINARY_SENSOR_TYPES: tuple[MarstekBinarySensorEntityDescription, ...] = (
     MarstekBinarySensorEntityDescription(
         key="charging_enabled",
         name="Charging enabled",
-        device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
         value_fn=lambda data: data.get("battery", {}).get("charg_flag", False),
         category="battery",
     ),
@@ -85,7 +84,14 @@ async def async_setup_entry(
         # Multi-device mode - create binary sensors for each device
         for mac in coordinator.get_device_macs():
             device_coordinator = coordinator.device_coordinators[mac]
-            device_data = next(d for d in coordinator.devices if (d.get("ble_mac") or d.get("wifi_mac")) == mac)
+            device_data = next(
+                (
+                    d
+                    for d in coordinator.devices
+                    if (d.get("ble_mac") or d.get("wifi_mac")) == mac
+                ),
+                {},
+            )
 
             for description in BINARY_SENSOR_TYPES:
                 entities.append(

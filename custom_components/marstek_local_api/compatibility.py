@@ -104,12 +104,14 @@ class CompatibilityMatrix:
         "bat_temp": {
             ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in °C
             ("VenusD",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
-            ("VenusD",HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1 = ×10)
+            ("VenusD",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in deci-°C
             ("VenusC",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
-            ("VenusC",HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1 = ×10)
+            ("VenusC",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in deci-°C
             ("VenusE",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
-            ("VenusE",HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1 = ×10)
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in °C
+            ("VenusE",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in deci-°C
+            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0-138: raw value in °C
+            ("VenusE",HW_VERSION_3, 139): 10.0,   # FW 139-142: raw value in deca-°C (÷10)
+            ("VenusE",HW_VERSION_3, 143): 1.0,    # FW 142+: raw value in °C
         },
 
         # Battery capacity (Wh)
@@ -121,7 +123,9 @@ class CompatibilityMatrix:
             ("VenusC",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
             ("VenusE",HW_VERSION_2, 0): 100.0,    # FW 0-153: raw value in centi-Wh (÷100)
             ("VenusE",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0-138: raw value in Wh
+            ("VenusE",HW_VERSION_3, 139): 0.1,    # FW 139-142: raw value in deci-Wh (÷0.1)
+            ("VenusE",HW_VERSION_3, 143): 1.0,    # FW 142+: raw value in °C
         },
 
         # Battery power (W)
@@ -174,7 +178,7 @@ class CompatibilityMatrix:
 
         # Battery available capacity (Wh)
         "battery_available_capacity": {
-            ("VenusA",HW_VERSION_2, 0): 1000.0,      # FW 0+: raw value in Wh
+            ("VenusA",HW_VERSION_2, 0): 1000.0,   # FW 0+: raw value in Wh
             ("VenusD",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
             ("VenusC",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
             ("VenusE",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
@@ -198,9 +202,13 @@ class CompatibilityMatrix:
             ("VenusE",HW_VERSION_3, 0): 100.0,    # All FW: raw in centi-A (÷100)
         },
 
-        # PV power (W) - Venus A returns raw value in deca-W (÷10)
+        # PV power (W) - Venus A/C/D/E returns raw value in deca-W (÷10)
         "pv_power": {
             ("VenusA",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusD",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusC",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusE",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in W
         },
     }
 

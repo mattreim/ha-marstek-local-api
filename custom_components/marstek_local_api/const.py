@@ -18,10 +18,10 @@ UPDATE_INTERVAL_MEDIUM_SECS: Final = 300   # Bat status — default 5 min
 UPDATE_INTERVAL_SLOW_SECS: Final = 1200    # Device, WiFi, BLE — default ~20 min
 
 # Communication timeouts
-COMMAND_TIMEOUT: Final = 2  # Timeout for commands in seconds
+COMMAND_TIMEOUT: Final = 5  # Timeout for commands in seconds
 MAX_RETRIES: Final = 5  # Maximum retries for critical commands
 RETRY_DELAY: Final = 2  # Delay between retries in seconds
-COMMAND_MAX_ATTEMPTS: Final = 3  # Attempts per command before giving up
+COMMAND_MAX_ATTEMPTS: Final = 5  # Attempts per command before giving up
 COMMAND_BACKOFF_BASE: Final = 1.5  # Base delay for command retry backoff
 COMMAND_BACKOFF_FACTOR: Final = 2.0  # Multiplier for successive backoff delays
 COMMAND_BACKOFF_MAX: Final = 12.0  # Upper bound on backoff delay

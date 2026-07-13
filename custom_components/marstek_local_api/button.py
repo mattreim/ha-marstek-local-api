@@ -64,7 +64,14 @@ async def async_setup_entry(
         # Multi-device mode - create button entities for each device
         for mac in coordinator.get_device_macs():
             device_coordinator = coordinator.device_coordinators[mac]
-            device_data = next(d for d in coordinator.devices if (d.get("ble_mac") or d.get("wifi_mac")) == mac)
+            device_data = next(
+                (
+                    d
+                    for d in coordinator.devices
+                    if (d.get("ble_mac") or d.get("wifi_mac")) == mac
+                ),
+                {},
+            )
 
             entities.extend([
                 MarstekMultiDeviceAutoModeButton(
