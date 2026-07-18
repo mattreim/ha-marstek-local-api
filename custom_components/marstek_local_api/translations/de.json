@@ -1,0 +1,133 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Marstek Local API",
+        "description": "Geräteeinrichtung für die lokale API"
+      },
+      "discovery": {
+        "title": "Entdeckte Geräte",
+        "description": "Wählen Sie ein entdecktes Marstek-Gerät aus oder wählen Sie die manuelle Eingabe",
+        "data": {
+          "device": "Gerät"
+        }
+      },
+      "manual": {
+        "title": "Manuelle Konfiguration",
+        "description": "Geben Sie die IP-Adresse Ihres Marstek-Geräts ein",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "Port"
+        }
+      },
+      "discovery_confirm": {
+        "title": "Entdecktes Marstek-Gerät",
+        "description": "Ein Marstek-Gerät ({name}) wurde in Ihrem Netzwerk entdeckt. Möchten Sie es zu Home Assistant hinzufügen?"
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Gerät fehlgeschlagen",
+      "device_not_found": "Ausgewähltes Gerät nicht gefunden",
+      "unknown": "Unerwarteter Fehler"
+    },
+    "abort": {
+      "already_configured": "Das Gerät ist bereits konfiguriert",
+      "cannot_connect": "Verbindung zum entdeckten Gerät fehlgeschlagen",
+      "unknown": "Unbekannter Fehler während der Entdeckung aufgetreten"
+    }
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "scan_interval": "Kommunikationszeitpunkte und Schwellenwerte anpassen",
+        "battery_settings": "Batterieeinstellungen",
+        "rename_device": "Gerät umbenennen",
+        "remove_device": "Gerät entfernen",
+        "add_device": "Gerät hinzufügen"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Marstek Local API Optionen",
+        "description": "Wählen Sie aus, was Sie konfigurieren möchten",
+        "data": {
+          "action": "Aktion"
+        }
+      },
+      "scan_interval": {
+        "title": "Kommunikationszeitpunkte und Schwellenwerte",
+        "description": "Wählen Sie aus, wie häufig Home Assistant das Gerät abfragt und wie es Kommunikationsprobleme behandelt.",
+        "data": {
+          "scan_interval": "Schnelles Aktualisierungsintervall (Sekunden)",
+          "command_timeout": "Befehls-Timeout (Sekunden)",
+          "command_max_attempts": "Maximale Wiederholungsversuche",
+          "command_min_interval": "Mindestintervall zwischen Frames (Sekunden)",
+          "stale_data_threshold": "Schwellenwert für veraltete Daten (Sekunden)",
+          "medium_interval_secs": "Mittleres Aktualisierungsintervall (Sekunden)",
+          "slow_interval_secs": "Langsames Aktualisierungsintervall (Sekunden)",
+          "poll_mode": "Abfrage-Betriebsmodus (ES.GetMode)"
+        },
+        "data_description": {
+          "scan_interval": "Basis-Abfrageintervall für Echtzeit-Sensoren (ES, EM, PV)",
+          "command_timeout": "Wie lange auf eine Geräteantwort gewartet wird, bevor versucht wird, den Befehl erneut zu senden",
+          "command_max_attempts": "Wie oft ein Befehl wiederholt wird, bevor aufgegeben wird",
+          "command_min_interval": "Mindestzeit (in Sekunden) zwischen zwei aufeinanderfolgenden Frames, die an die Batterie gesendet werden. Erhöhen, wenn das Gerät Schwierigkeiten mit schnellen Befehlen hat (z.B. während von Moduswechseln). Standard: 0.5 s.",
+          "stale_data_threshold": "Wie alt Daten sein dürfen (in Sekunden), bevor Entitäten als nicht verfügbar angezeigt werden. Empfohlen: mindestens das Doppelte des langsamen Aktualisierungsintervalls (Standard: 2 × 1200 = 2400 s). Standard: 3600 s (1 Stunde).",
+          "medium_interval_secs": "Wie oft der Batteriestatus und der Betriebsmodus abgefragt werden (Bat.GetStatus, ES.GetMode). Standard: 300 s (5 min).",
+          "slow_interval_secs": "Wie oft Informationen über das Gerät (Gerät, Wi-Fi, BLE) abgefragt werden. Standard: 1200 s (20 min).",
+          "poll_mode": "Wenn diese Funktion aktiviert ist, fragt Home Assistant das Gerät in regelmäßigen Abständen (mittleres Intervall) mittels ES.GetMode nach dem Betriebsmodus ab. Deaktivieren Sie diese Option, falls es bei der Abfrage über ES.GetMode zu unerwarteten Zurücksetzungen der Konfiguration kommt. Standardeinstellung: aktiviert."
+        }
+      },
+      "battery_settings": {
+        "title": "Batterieeinstellungen",
+        "description": "Diese Werte dienen nur zur Information und konfigurieren das Gerät nicht. Stellen Sie sie so ein, dass sie mit den Einstellungen in der Marstek-App übereinstimmen.",
+        "data": {
+          "dod_percent": "Entladetiefe (%)"
+        },
+        "data_description": {
+          "dod_percent": "Maximale Prozentzahl der Nennkapazität, die die Batterie verwenden kann (z.B. 88 bedeutet, dass sie bei 12% SOC stoppt). Muss mit der Einstellung in der Marstek-App übereinstimmen — dies ändert die Gerätekonfiguration nicht."
+        }
+      },
+      "rename_device": {
+        "title": "Gerät umbenennen",
+        "description": "Aktualisieren Sie, wie das Gerät in Home Assistant angezeigt wird",
+        "data": {
+          "device": "Gerät",
+          "name": "Neuer Name"
+        }
+      },
+      "remove_device": {
+        "title": "Gerät entfernen",
+        "description": "Wählen Sie ein Gerät aus, um es aus dieser Integration zu entfernen",
+        "data": {
+          "device": "Gerät"
+        }
+      },
+      "add_device": {
+        "title": "Gerät hinzufügen",
+        "description": "Wählen Sie ein entdecktes Gerät aus oder wählen Sie die manuelle Eingabe",
+        "data": {
+          "device": "Gerät"
+        }
+      },
+      "add_device_manual": {
+        "title": "Manuelle Geräteeingabe",
+        "description": "Geben Sie die Verbindungsdetails für das Gerät ein",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "invalid_name": "Geben Sie einen gültigen Namen an",
+      "cannot_remove_last_device": "Mindestens ein Gerät muss konfiguriert bleiben",
+      "device_already_configured": "Dieses Gerät ist bereits konfiguriert",
+      "device_not_found": "Ausgewähltes Gerät nicht gefunden",
+      "cannot_connect": "Verbindung zum Gerät fehlgeschlagen",
+      "unknown": "Unerwarteter Fehler"
+    }
+  }
+}

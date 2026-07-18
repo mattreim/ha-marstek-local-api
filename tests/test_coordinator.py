@@ -299,7 +299,7 @@ class TestGetDeviceData:
 class TestMultiDeviceAsyncUpdateData:
     async def test_basic_update(self):
         coord = MarstekMultiDeviceCoordinator.__new__(MarstekMultiDeviceCoordinator)
-        coord.dod_percent = 80
+        coord.dod_percent = 88
         coord.update_interval = timedelta(seconds=10)
         device_coord = _make_coord()
         coord.device_coordinators = {"aabbcc": device_coord}
@@ -309,11 +309,11 @@ class TestMultiDeviceAsyncUpdateData:
 
         assert "devices" in data
         assert "aggregates" in data
-        assert data["_config"]["dod_percent"] == 80
+        assert data["_config"]["dod_percent"] == 88
 
     async def test_device_update_exception_returns_old_data(self):
         coord = MarstekMultiDeviceCoordinator.__new__(MarstekMultiDeviceCoordinator)
-        coord.dod_percent = 80
+        coord.dod_percent = 88
         coord.update_interval = timedelta(seconds=10)
         device_coord = _make_coord(data={"old": "data"})
 

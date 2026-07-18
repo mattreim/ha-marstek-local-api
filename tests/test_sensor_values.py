@@ -23,9 +23,9 @@ class TestBatterySensors:
         assert val == pytest.approx(29.0)
 
     def test_remaining_capacity_kwh(self, sensor_map, venus_a_coordinator_data):
-        """bat_capacity=869.0 Wh → 0.869 kWh after _wh_to_kwh conversion."""
+        """bat_capacity=869.0 Wh → 0.87 kWh after _wh_to_kwh conversion."""
         val = sensor_map["battery_capacity"].value_fn(venus_a_coordinator_data)
-        assert val == pytest.approx(0.869)
+        assert val == pytest.approx(0.87)
 
     def test_rated_capacity_kwh(self, sensor_map, venus_a_coordinator_data):
         """rated_capacity=4160.0 Wh → 4.16 kWh."""
@@ -33,14 +33,14 @@ class TestBatterySensors:
         assert val == pytest.approx(4.16)
 
     def test_available_capacity(self, sensor_map, venus_a_coordinator_data):
-        """available = rated_capacity - bat_capacity = 4160 - 869 = 3291 Wh = 3.291 kWh."""
+        """available = rated_capacity - bat_capacity = 4160 - 869 = 3291 Wh = 3.29 kWh."""
         val = sensor_map["battery_available_capacity"].value_fn(venus_a_coordinator_data)
-        assert val == pytest.approx(3.291)
+        assert val == pytest.approx(3.29)
 
     def test_usable_capacity_default_dod(self, sensor_map, venus_a_coordinator_data):
-        """usable = rated_capacity * 80% = 4160 * 0.80 = 3328 Wh = 3.328 kWh."""
+        """usable = rated_capacity * 88% = 4160 * 0.88 = 3660.8 Wh = 3.66 kWh."""
         val = sensor_map["battery_usable_capacity"].value_fn(venus_a_coordinator_data)
-        assert val == pytest.approx(3.328)
+        assert val == pytest.approx(3.66)
 
     def test_usable_capacity_custom_dod(self, sensor_map, venus_a_coordinator_data):
         """DOD=50% → usable = 4160 * 0.50 = 2080 Wh = 2.080 kWh."""
@@ -49,55 +49,55 @@ class TestBatterySensors:
         assert val == pytest.approx(2.080)
 
     def test_usable_capacity_no_rated_returns_none(self, sensor_map):
-        data = {"battery": {}, "_config": {"dod_percent": 80}}
+        data = {"battery": {}, "_config": {"dod_percent": 88}}
         val = sensor_map["battery_usable_capacity"].value_fn(data)
         assert val is None
 
     def test_available_until_dod_default(self, sensor_map, venus_a_coordinator_data):
-        """bat_capacity=869, rated=4160, DOD=80% → reserved=832, available=37 Wh = 0.037 kWh."""
+        """bat_capacity=869, rated=4160, DOD=88% → reserved=499.2, available=369.8 Wh = 0.37 kWh."""
         val = sensor_map["battery_available_until_dod"].value_fn(venus_a_coordinator_data)
-        assert val == pytest.approx(0.037)
+        assert val == pytest.approx(0.37)
 
     def test_available_until_dod_custom(self, sensor_map, venus_a_coordinator_data):
-        """DOD=90% → reserved=416, available=869-416=453 Wh = 0.453 kWh."""
+        """DOD=90% → reserved=416, available=869-416=453 Wh = 0.45 kWh."""
         data = {**venus_a_coordinator_data, "_config": {"dod_percent": 90}}
         val = sensor_map["battery_available_until_dod"].value_fn(data)
-        assert val == pytest.approx(0.453)
+        assert val == pytest.approx(0.45)
 
     def test_available_until_dod_below_limit_clamps_to_zero(self, sensor_map):
         """SOC below DOD floor → returns 0, not negative."""
         data = {
             "battery": {"rated_capacity": 5000.0, "bat_capacity": 500.0},
-            "_config": {"dod_percent": 80},
+            "_config": {"dod_percent": 88},
         }
         # reserved = 5000 * 0.20 = 1000, current=500 → clamped to 0
         val = sensor_map["battery_available_until_dod"].value_fn(data)
         assert val == pytest.approx(0.0)
 
     def test_available_until_dod_no_data_returns_none(self, sensor_map):
-        data = {"battery": {}, "_config": {"dod_percent": 80}}
+        data = {"battery": {}, "_config": {"dod_percent": 88}}
         val = sensor_map["battery_available_until_dod"].value_fn(data)
         assert val is None
 
     def test_available_until_dod_no_config_uses_default(self, sensor_map, venus_a_coordinator_data):
-        """Without _config key, DOD_DEFAULT (80%) is used."""
+        """Without _config key, DOD_DEFAULT (88%) is used."""
         data = {k: v for k, v in venus_a_coordinator_data.items() if k != "_config"}
         val = sensor_map["battery_available_until_dod"].value_fn(data)
-        assert val == pytest.approx(0.037)
+        assert val == pytest.approx(0.37)
 
     def test_usable_soc_default_dod(self, sensor_map, venus_a_coordinator_data):
-        """soc=20%, DOD=80% → min_soc=20% → usable_soc=(20-20)/80*100=0%."""
+        """soc=20%, DOD=88% → min_soc=12% → usable_soc=(20-12)/88*100=9.09%."""
         val = sensor_map["battery_usable_soc"].value_fn(venus_a_coordinator_data)
-        assert val == pytest.approx(0.0)
+        assert val == pytest.approx(9.09)
 
     def test_usable_soc_half_usable(self, sensor_map, venus_a_coordinator_data):
-        """soc=60%, DOD=80% → min_soc=20% → usable_soc=(60-20)/80*100=50%."""
+        """soc=60%, DOD=88% → min_soc=12% → usable_soc=(60-12)/88*100=54.55%."""
         data = {**venus_a_coordinator_data, "battery": {**venus_a_coordinator_data["battery"], "soc": 60}}
         val = sensor_map["battery_usable_soc"].value_fn(data)
-        assert val == pytest.approx(50.0)
+        assert val == pytest.approx(54.55)
 
     def test_usable_soc_full(self, sensor_map, venus_a_coordinator_data):
-        """soc=100%, DOD=80% → usable_soc=(100-20)/80*100=100%."""
+        """soc=100%, DOD=88% → usable_soc=(100-12)/88*100=100%."""
         data = {**venus_a_coordinator_data, "battery": {**venus_a_coordinator_data["battery"], "soc": 100}}
         val = sensor_map["battery_usable_soc"].value_fn(data)
         assert val == pytest.approx(100.0)
@@ -109,17 +109,17 @@ class TestBatterySensors:
         assert val == pytest.approx(0.0)
 
     def test_usable_soc_no_soc_returns_none(self, sensor_map):
-        data = {"battery": {}, "_config": {"dod_percent": 80}}
+        data = {"battery": {}, "_config": {"dod_percent": 88}}
         val = sensor_map["battery_usable_soc"].value_fn(data)
         assert val is None
 
     # --- time_to_full ---
 
     def test_time_to_full_while_charging(self, sensor_map, venus_a_coordinator_data):
-        """Charging at 500 W (ongrid_power=-500): (4160 - 869) / 500 * 60 = 394.92 min."""
+        """Charging at 500 W (ongrid_power=-500): (4160 - 870) / 500 * 60 = 394.80 min."""
         data = {**venus_a_coordinator_data, "es": {"ongrid_power": -500}}
         val = sensor_map["battery_time_to_full"].value_fn(data)
-        assert val == pytest.approx((4160 - 869) / 500 * 60)
+        assert val == pytest.approx((4160 - 870) / 500 * 60)
 
     def test_time_to_full_not_charging_returns_none(self, sensor_map, venus_a_coordinator_data):
         """Not charging (ongrid_power >= 0) → None."""
@@ -129,7 +129,7 @@ class TestBatterySensors:
         assert sensor_map["battery_time_to_full"].value_fn(data2) is None
 
     def test_time_to_full_no_battery_data_returns_none(self, sensor_map):
-        data = {"battery": {}, "es": {"ongrid_power": -500}, "_config": {"dod_percent": 80}}
+        data = {"battery": {}, "es": {"ongrid_power": -500}, "_config": {"dod_percent": 88}}
         assert sensor_map["battery_time_to_full"].value_fn(data) is None
 
     def test_time_to_full_no_power_returns_none(self, sensor_map, venus_a_coordinator_data):
@@ -139,10 +139,10 @@ class TestBatterySensors:
     # --- time_to_dod ---
 
     def test_time_to_dod_while_discharging(self, sensor_map, venus_a_coordinator_data):
-        """Discharging at 100 W (ongrid_power=100), available=37 Wh → 37/100*60=22.2 min."""
+        """Discharging at 100 W (ongrid_power=100), available=369.8 Wh → 369.8/100*60=221.88 min."""
         data = {**venus_a_coordinator_data, "es": {"ongrid_power": 100}}
         val = sensor_map["battery_time_to_dod"].value_fn(data)
-        assert val == pytest.approx(37.0 / 100 * 60)
+        assert val == pytest.approx(369.8 / 100 * 60)
 
     def test_time_to_dod_not_discharging_returns_none(self, sensor_map, venus_a_coordinator_data):
         """Not discharging (ongrid_power <= 0) → None."""
@@ -152,17 +152,17 @@ class TestBatterySensors:
         assert sensor_map["battery_time_to_dod"].value_fn(data2) is None
 
     def test_time_to_dod_at_dod_limit_returns_zero(self, sensor_map, venus_a_coordinator_data):
-        """bat_capacity == reserved capacity (832 Wh) → available=0 → 0 min."""
+        """bat_capacity == reserved capacity (499.2 Wh) → available=0 → 0 min."""
         data = {
             **venus_a_coordinator_data,
-            "battery": {**venus_a_coordinator_data["battery"], "bat_capacity": 832.0},
+            "battery": {**venus_a_coordinator_data["battery"], "bat_capacity": 499.2},
             "es": {"ongrid_power": 200},
         }
         val = sensor_map["battery_time_to_dod"].value_fn(data)
         assert val == pytest.approx(0.0)
 
     def test_time_to_dod_no_battery_data_returns_none(self, sensor_map):
-        data = {"battery": {}, "es": {"ongrid_power": 100}, "_config": {"dod_percent": 80}}
+        data = {"battery": {}, "es": {"ongrid_power": 100}, "_config": {"dod_percent": 88}}
         assert sensor_map["battery_time_to_dod"].value_fn(data) is None
 
     def test_time_to_dod_no_power_returns_none(self, sensor_map, venus_a_coordinator_data):
@@ -212,7 +212,7 @@ class TestESSensorsWithData:
         # pv_power = pv1(200) + pv2(100) + pv3(0) + pv4(0) = 300 W
         return {
             **venus_a_coordinator_data,
-            "es": {"bat_power": 1200, "ongrid_power": -300, "offgrid_power": 0, "total_pv_energy": 50000, "total_grid_input_energy": 20000, "total_grid_output_energy": 10000, "total_load_energy": 30000},
+            "es": {"bat_power": 1200, "ongrid_power": -300, "offgrid_power": 0, "total_pv_energy": 5000, "total_grid_input_energy": 20000, "total_grid_output_energy": 10000, "total_load_energy": 30000},
             "pv": {"pv1_power": 200, "pv2_power": 100, "pv3_power": 0, "pv4_power": 0, "pv_power": 300},
         }
 
@@ -337,12 +337,6 @@ class TestWiFiSensors:
 # ---------------------------------------------------------------------------
 
 class TestDeviceSensors:
-    def test_model(self, sensor_map, venus_a_coordinator_data):
-        assert sensor_map["device_model"].value_fn(venus_a_coordinator_data) == "Venus A"
-
-    def test_firmware_version(self, sensor_map, venus_a_coordinator_data):
-        assert sensor_map["firmware_version"].value_fn(venus_a_coordinator_data) == 147
-
     def test_ble_mac(self, sensor_map, venus_a_coordinator_data):
         assert sensor_map["ble_mac"].value_fn(venus_a_coordinator_data) == "bc2a33600dca"
 

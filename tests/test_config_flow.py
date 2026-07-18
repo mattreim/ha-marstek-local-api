@@ -599,11 +599,11 @@ class TestOptionsFlowScanInterval:
         assert result["step_id"] == "scan_interval"
 
     async def test_with_input_merges_options_and_creates(self):
-        flow = _make_options_flow(options={"dod_percent": 80})
+        flow = _make_options_flow(options={"dod_percent": 88})
         result = await flow.async_step_scan_interval(user_input={"scan_interval": 30})
         assert result["type"] == "create_entry"
         # merged: keeps dod_percent and adds scan_interval
-        assert result["data"]["dod_percent"] == 80
+        assert result["data"]["dod_percent"] == 88
         assert result["data"]["scan_interval"] == 30
 
     async def test_command_min_interval_saved(self):
@@ -657,10 +657,10 @@ class TestOptionsFlowBatterySettings:
 
     async def test_with_input_merges_options_and_creates(self):
         flow = _make_options_flow(options={"scan_interval": 30})
-        result = await flow.async_step_battery_settings(user_input={"dod_percent": 90})
+        result = await flow.async_step_battery_settings(user_input={"dod_percent": 85})
         assert result["type"] == "create_entry"
         assert result["data"]["scan_interval"] == 30
-        assert result["data"]["dod_percent"] == 90
+        assert result["data"]["dod_percent"] == 85
 
 
 # ---------------------------------------------------------------------------

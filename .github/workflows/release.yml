@@ -16,9 +16,9 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -50,7 +50,7 @@ jobs:
           git push origin "v${{ inputs.version }}"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: "v${{ inputs.version }}"
           generate_release_notes: true

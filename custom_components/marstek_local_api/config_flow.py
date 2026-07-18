@@ -380,17 +380,17 @@ class OptionsFlow(config_entries.OptionsFlow):
         if not self._devices:
             self._devices = list(self.config_entry.data.get("devices", []))
 
-        actions: dict[str, str] = {
-            "scan_interval": "Adjust communication timings and thresholds",
-            "battery_settings": "Battery settings (DOD and usable capacity)",
+        actions = {
+            "scan_interval": "scan_interval",
+            "battery_settings": "battery_settings",
         }
 
         if self._devices:
             actions.update(
                 {
-                    "rename_device": "Rename a device",
-                    "remove_device": "Remove a device",
-                    "add_device": "Add a device",
+                    "rename_device": "rename_device",
+                    "remove_device": "remove_device",
+                    "add_device": "add_device",
                 }
             )
 
@@ -479,7 +479,7 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         "dod_percent",
                         default=opts.get("dod_percent", DOD_DEFAULT),
-                    ): NumberSelector(NumberSelectorConfig(min=10, max=100, mode=NumberSelectorMode.BOX)),
+                    ): NumberSelector(NumberSelectorConfig(min=30, max=88, mode=NumberSelectorMode.BOX)),
                 }
             ),
         )

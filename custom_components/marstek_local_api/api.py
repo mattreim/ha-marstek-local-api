@@ -46,7 +46,7 @@ _transport_refcounts = {}
 _clients_by_port = {}  # Map port -> list of clients
 
 
-class MarstekUDPClient:
+class MarstekUDPClient: # pylint: disable=too-many-public-methods
     """UDP client for Marstek Local API communication."""
 
     def __init__(
@@ -267,14 +267,8 @@ class MarstekUDPClient:
             method, msg_id, self.host, self.remote_port, self.transport is not None
         )
 
-        # Serialize access and enforce minimum inter-command interval
-        await self._send_lock.acquire()
-        loop_time = asyncio.get_running_loop().time()
-        wait = self.command_min_interval - (loop_time - self._last_send_time)
-        if wait > 0:
-            _LOGGER.debug("Rate-limiting: waiting %.2fs before sending %s", wait, method)
-            await asyncio.sleep(wait)
-        self._last_send_time = asyncio.get_running_loop().time()
+        # Event loop used for timing and latency measurements.
+        loop = asyncio.get_running_loop()
 
         # Shared response tracking for all attempts
         response_event = asyncio.Event()
@@ -310,32 +304,47 @@ class MarstekUDPClient:
         self.register_handler(handler)
 
         try:
-            loop = asyncio.get_running_loop()
-
             for attempt in range(1, attempt_limit + 1):
                 response_event.clear()
                 response_data.clear()
                 attempt_started = loop.time()
 
                 try:
-                    _LOGGER.debug(
-                        "Sending payload (attempt %d/%d) to %s:%s: %s",
-                        attempt,
-                        attempt_limit,
-                        self.host or "broadcast",
-                        self.remote_port,
-                        payload_str,
-                    )
-                    # Yield once more to ensure pending packets are processed before sending
-                    await asyncio.sleep(0)
-                    await self._send_to_host(payload_str)
+                    async with self._send_lock:
+                        # Only apply the minimum interval before the first attempt.
+                        # Retries use the exponential backoff only.
+                        if attempt == 1:
+                            loop_time = loop.time()
+                            wait = self.command_min_interval - (
+                                loop_time - self._last_send_time
+                            )
 
-                    await asyncio.wait_for(response_event.wait(), timeout=effective_timeout)
+                            if wait > 0:
+                                _LOGGER.debug(
+                                    "Rate-limiting: waiting %.2fs before sending %s",
+                                    wait,
+                                    method,
+                                )
+                                await asyncio.sleep(wait)
+
+                        _LOGGER.debug(
+                            "Sending payload (attempt %d/%d) to %s:%s: %s",
+                            attempt,
+                            attempt_limit,
+                            self.host or "broadcast",
+                            self.remote_port,
+                            payload_str,
+                        )
+                        await self._send_to_host(payload_str)
+                        self._last_send_time = loop.time()
+
+                    await asyncio.wait_for(
+                        response_event.wait(),
+                        timeout=effective_timeout,
+                    )
 
                     if "error" in response_data:
                         error = response_data["error"]
-                        error_code = error.get('code')
-                        error_msg = error.get('message')
                         # Record the error with its code for diagnostics
                         self._record_command_result(
                             method,
@@ -343,11 +352,11 @@ class MarstekUDPClient:
                             attempt=attempt,
                             latency=None,
                             timeout=False,
-                            error=error_msg,
-                            error_code=error_code,
+                            error=error.get('message'),
+                            error_code=error.get('code'),
                         )
                         raise MarstekAPIError(
-                            f"API error {error_code}: {error_msg}"
+                            f"API error {error.get('code')}: {error.get('message')}"
                         )
 
                     latency = loop.time() - attempt_started
@@ -379,14 +388,22 @@ class MarstekUDPClient:
                         timeout=True,
                         error="timeout",
                     )
-                    _LOGGER.warning(
-                        "Command %s timed out after %ss (attempt %d/%d, host=%s)",
-                        method,
-                        effective_timeout,
-                        attempt,
-                        attempt_limit,
-                        self.host,
-                    )
+                    if attempt >= attempt_limit:
+                        _LOGGER.error(
+                            "Command %s failed after %d attempts (host=%s)",
+                            method,
+                            attempt_limit,
+                            self.host,
+                        )
+                    else:
+                        _LOGGER.debug(
+                            "Command %s timed out after %ss (attempt %d/%d, host=%s)",
+                            method,
+                            effective_timeout,
+                            attempt,
+                            attempt_limit,
+                            self.host,
+                        )
                     last_exception = None
                 except MarstekAPIError:
                     # Error already recorded in the if "error" block above
@@ -424,16 +441,26 @@ class MarstekUDPClient:
 
         finally:
             self.unregister_handler(handler)
-            self._send_lock.release()
 
         if last_exception:
             raise last_exception
 
-        _LOGGER.error(
-            "Command %s failed after %d attempt(s); returning no result",
-            method,
-            attempt_limit,
-        )
+        if attempt >= attempt_limit:
+            _LOGGER.error(
+                "Command %s failed after %d attempts (host=%s)",
+                method,
+                attempt_limit,
+                self.host,
+            )
+        else:
+            _LOGGER.debug(
+                "Command %s timed out after %ss (attempt %d/%d, host=%s)",
+                method,
+                effective_timeout,
+                attempt,
+                attempt_limit,
+                self.host,
+            )
         return None
 
     async def _send_to_host(self, message: str) -> None:

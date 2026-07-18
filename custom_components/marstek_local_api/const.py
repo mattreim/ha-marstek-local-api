@@ -18,10 +18,10 @@ UPDATE_INTERVAL_MEDIUM_SECS: Final = 300   # Bat status — default 5 min
 UPDATE_INTERVAL_SLOW_SECS: Final = 1200    # Device, WiFi, BLE — default ~20 min
 
 # Communication timeouts
-COMMAND_TIMEOUT: Final = 2  # Timeout for commands in seconds
+COMMAND_TIMEOUT: Final = 5  # Timeout for commands in seconds
 MAX_RETRIES: Final = 5  # Maximum retries for critical commands
 RETRY_DELAY: Final = 2  # Delay between retries in seconds
-COMMAND_MAX_ATTEMPTS: Final = 3  # Attempts per command before giving up
+COMMAND_MAX_ATTEMPTS: Final = 5  # Attempts per command before giving up
 COMMAND_BACKOFF_BASE: Final = 1.5  # Base delay for command retry backoff
 COMMAND_BACKOFF_FACTOR: Final = 2.0  # Multiplier for successive backoff delays
 COMMAND_BACKOFF_MAX: Final = 12.0  # Upper bound on backoff delay
@@ -29,7 +29,7 @@ COMMAND_BACKOFF_JITTER: Final = 0.4  # Additional random jitter for backoff
 COMMAND_MIN_INTERVAL: Final = 5  # Default minimum seconds between consecutive commands
 # Recommended: at least 2× UPDATE_INTERVAL_SLOW_SECS.
 STALE_DATA_THRESHOLD: Final = 3600  # Seconds before data is considered stale (1 hour).
-DOD_DEFAULT: Final = 80  # Depth of Discharge percentage (80% = use 80% of capacity, stop at 20% SOC)
+DOD_DEFAULT: Final = 88  # Depth of Discharge percentage (88% = use 88% of capacity, stop at 12% SOC)
 DIAGNOSTIC_MAX_FRAMES: Final = 50  # Number of recent raw frames to keep per device
 
 # API Methods

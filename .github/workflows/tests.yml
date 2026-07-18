@@ -10,9 +10,9 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -36,7 +36,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: |
@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage-report/
