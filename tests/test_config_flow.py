@@ -87,8 +87,8 @@ _SAMPLE_DEVICE = {
     "ble_mac": "aabbccddeeff",
     "wifi_mac": "aabbccdd0011",
     "ip": "192.168.1.100",
-    "name": "Venus A",
-    "firmware": "147",
+    "name": "VenusA",
+    "firmware": 147,
 }
 
 _SAMPLE_DEVICE2 = {
@@ -96,8 +96,8 @@ _SAMPLE_DEVICE2 = {
     "ble_mac": "112233445566",
     "wifi_mac": "112233445500",
     "ip": "192.168.1.101",
-    "name": "Venus B",
-    "firmware": "147",
+    "name": "VenusC",
+    "firmware": 147,
 }
 
 
@@ -110,7 +110,7 @@ class TestValidateInput:
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
             "device": "VenusA",
-            "ver": "147",
+            "ver": 147,
             "wifi_mac": "aabb",
             "ble_mac": "ccdd",
         }
@@ -143,7 +143,7 @@ class TestValidateInput:
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
             "device": "VenusA",
-            "ver": "147",
+            "ver": 147,
             "ble_mac": "aabbccddeeff",
         }
         with patch.object(_cf, "MarstekUDPClient", mock_cls):
@@ -155,7 +155,7 @@ class TestValidateInput:
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
             "device": "VenusA",
-            "ver": "147",
+            "ver": 147,
             "wifi_mac": "wifi123",
         }
         with patch.object(_cf, "MarstekUDPClient", mock_cls):
@@ -413,7 +413,7 @@ class TestConfigFlowManual:
         flow = _make_config_flow()
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
-            "device": "VenusA", "ver": "147",
+            "device": "VenusA", "ver": 147,
             "ble_mac": "aabb", "wifi_mac": "ccdd",
         }
         user_input = {"host": "192.168.1.1", "port": 8899}
@@ -427,7 +427,7 @@ class TestConfigFlowManual:
         flow = _make_config_flow()
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
-            "device": "VenusA", "ver": "147",
+            "device": "VenusA", "ver": 147,
             "wifi_mac": "ccdd",
         }
         user_input = {"host": "192.168.1.1", "port": 8899}
@@ -469,7 +469,7 @@ class TestConfigFlowDhcp:
         flow = _make_config_flow()
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
-            "device": "VenusA", "ver": "147",
+            "device": "VenusA", "ver": 147,
             "ble_mac": "aabb", "wifi_mac": "ccdd",
         }
         with patch.object(_cf, "MarstekUDPClient", mock_cls):
@@ -483,7 +483,7 @@ class TestConfigFlowDhcp:
         flow = _make_config_flow()
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
-            "device": "VenusA", "ver": "147",
+            "device": "VenusA", "ver": 147,
             "wifi_mac": "ccdd",
         }
         with patch.object(_cf, "MarstekUDPClient", mock_cls):
@@ -860,7 +860,7 @@ class TestOptionsFlowAddDeviceManual:
         flow._devices = [_SAMPLE_DEVICE]
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
-            "device": "VenusA", "ver": "147",
+            "device": "VenusA", "ver": 147,
             "ble_mac": _SAMPLE_DEVICE["ble_mac"],
         }
         user_input = {"host": "192.168.1.1", "port": 8899}
@@ -875,7 +875,7 @@ class TestOptionsFlowAddDeviceManual:
         flow.config_entry.data = {"devices": [_SAMPLE_DEVICE]}
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
-            "device": "VenusB", "ver": "147",
+            "device": "VenusB", "ver": 147,
             "ble_mac": "new_ble_mac", "wifi_mac": "new_wifi_mac",
         }
         user_input = {"host": "192.168.1.2", "port": 8899}
@@ -892,7 +892,7 @@ class TestOptionsFlowAddDeviceManual:
         flow.config_entry.data = {"devices": [_SAMPLE_DEVICE]}
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
-            "device": "VenusC", "ver": "147",
+            "device": "VenusC", "ver": 147,
         }
         user_input = {"host": "192.168.1.3", "port": 8899}
         with patch.object(_cf, "MarstekUDPClient", mock_cls):

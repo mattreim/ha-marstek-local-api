@@ -26,10 +26,12 @@ MarstekModeButton = _button_mod.MarstekModeButton
 MarstekAutoModeButton = _button_mod.MarstekAutoModeButton
 MarstekAIModeButton = _button_mod.MarstekAIModeButton
 MarstekManualModeButton = _button_mod.MarstekManualModeButton
+MarstekUPSModeButton = _button_mod.MarstekUPSModeButton
 MarstekMultiDeviceModeButton = _button_mod.MarstekMultiDeviceModeButton
 MarstekMultiDeviceAutoModeButton = _button_mod.MarstekMultiDeviceAutoModeButton
 MarstekMultiDeviceAIModeButton = _button_mod.MarstekMultiDeviceAIModeButton
 MarstekMultiDeviceManualModeButton = _button_mod.MarstekMultiDeviceManualModeButton
+MarstekMultiDeviceUPSModeButton = _button_mod.MarstekMultiDeviceUPSModeButton
 DEFAULT_MANUAL_MODE_CFG = _button_mod.DEFAULT_MANUAL_MODE_CFG
 
 MarstekMultiDeviceCoordinator = _coordinator_mod.MarstekMultiDeviceCoordinator
@@ -37,6 +39,7 @@ MarstekMultiDeviceCoordinator = _coordinator_mod.MarstekMultiDeviceCoordinator
 MODE_AUTO = _button_mod.MODE_AUTO
 MODE_AI = _button_mod.MODE_AI
 MODE_MANUAL = _button_mod.MODE_MANUAL
+MODE_UPS = _button_mod.MODE_UPS
 MAX_RETRIES = _button_mod.MAX_RETRIES
 DOMAIN = _button_mod.DOMAIN
 DATA_COORDINATOR = _button_mod.DATA_COORDINATOR
@@ -48,7 +51,7 @@ _DEVICE_DATA = {
     "ble_mac": "aabbccddeeff",
     "wifi_mac": "112233445566",
     "device": "VenusA",
-    "firmware": "147",
+    "firmware": 147,
 }
 
 
@@ -80,7 +83,7 @@ def _make_multi_coord(macs=None):
     coord.async_set_updated_data = MagicMock()
     coord.get_device_macs = MagicMock(return_value=macs)
     coord.devices = [
-        {"ble_mac": mac, "wifi_mac": None, "device": "VenusA", "firmware": "147"}
+        {"ble_mac": mac, "wifi_mac": None, "device": "VenusA", "firmware": 147}
         for mac in macs
     ]
     coord.device_coordinators = {mac: _make_dev_coord() for mac in macs}
@@ -152,6 +155,14 @@ class TestModeStateFromConfig:
         result = _mode_state_from_config(MODE_MANUAL, {})
         assert result == {"mode": MODE_MANUAL}
 
+    def test_ups_with_cfg(self):
+        result = _mode_state_from_config(MODE_UPS, {"ups_cfg": {"enable": 1}})
+        assert result == {"mode": MODE_UPS, "ups_cfg": {"enable": 1}}
+
+    def test_ups_without_cfg(self):
+        result = _mode_state_from_config(MODE_UPS, {})
+        assert result == {"mode": MODE_UPS}
+
     def test_unknown_mode(self):
         result = _mode_state_from_config("Unknown", {"auto_cfg": {}, "ai_cfg": {}})
         assert result == {"mode": "Unknown"}
@@ -162,34 +173,88 @@ class TestModeStateFromConfig:
 # ===========================================================================
 
 class TestAsyncSetupEntry:
-    async def test_single_device(self):
+    async def test_single_device_with_ups(self):
         coord = _make_coord()
         hass = MagicMock()
-        entry = _make_entry()
+        entry = _make_entry(device="VenusE", firmware=154)
         hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coord}}}
         add_entities = MagicMock()
 
         await async_setup_entry(hass, entry, add_entities)
 
-        add_entities.assert_called_once()
         entities = add_entities.call_args[0][0]
-        assert len(entities) == 3
-        assert all(isinstance(e, MarstekModeButton) for e in entities)
 
-    async def test_multi_device(self):
-        macs = ["aabbccddeeff", "112233445566"]
-        coord = _make_multi_coord(macs=macs)
+        assert len(entities) == 4
+        assert any(isinstance(e, MarstekUPSModeButton) for e in entities)
+
+    async def test_single_device_without_ups(self):
+        coord = _make_coord()
         hass = MagicMock()
-        entry = _make_entry()
+        entry = _make_entry(device="VenusC", firmware=123)
         hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coord}}}
         add_entities = MagicMock()
 
         await async_setup_entry(hass, entry, add_entities)
 
-        add_entities.assert_called_once()
         entities = add_entities.call_args[0][0]
+
+        assert len(entities) == 3
+        assert not any(isinstance(e, MarstekUPSModeButton) for e in entities)
+
+    async def test_single_device_venus_e_hw3_with_ups(self):
+        coord = _make_coord()
+        hass = MagicMock()
+        entry = _make_entry(device="VenusE 3.0", firmware=144)
+        hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coord}}}
+        add_entities = MagicMock()
+
+        await async_setup_entry(hass, entry, add_entities)
+
+        entities = add_entities.call_args[0][0]
+
+        assert len(entities) == 4
+        assert any(isinstance(e, MarstekUPSModeButton) for e in entities)
+
+
+    async def test_multi_device_without_ups(self):
+        macs = ["aa", "bb"]
+        coord = _make_multi_coord(macs)
+
+        for dev in coord.devices:
+            dev["device"] = "VenusC"
+            dev["firmware"] = 123
+
+        hass = MagicMock()
+        entry = _make_entry(device="VenusC", firmware=123)
+        hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coord}}}
+        add_entities = MagicMock()
+
+        await async_setup_entry(hass, entry, add_entities)
+
+        entities = add_entities.call_args[0][0]
+
         assert len(entities) == 6  # 3 buttons × 2 devices
-        assert all(isinstance(e, MarstekMultiDeviceModeButton) for e in entities)
+        assert not any(isinstance(e, MarstekMultiDeviceUPSModeButton) for e in entities)
+
+    async def test_multi_device_with_ups(self):
+        macs = ["aa", "bb"]
+        coord = _make_multi_coord(macs)
+
+        for dev in coord.devices:
+            dev["device"] = "VenusE 3.0"
+            dev["firmware"] = 144
+
+        hass = MagicMock()
+        entry = _make_entry(device="VenusE 3.0", firmware=144)
+        hass.data = {DOMAIN: {entry.entry_id: {DATA_COORDINATOR: coord}}}
+        add_entities = MagicMock()
+
+        await async_setup_entry(hass, entry, add_entities)
+
+        entities = add_entities.call_args[0][0]
+
+        assert len(entities) == 8  # 4 buttons × 2 devices
+        assert any(isinstance(e, MarstekMultiDeviceUPSModeButton) for e in entities)
 
 
 # ===========================================================================
@@ -215,6 +280,12 @@ class TestMarstekModeButtonInit:
         assert btn._mode == MODE_MANUAL
         assert btn._attr_name == "Manual mode"
         assert btn._attr_icon == "mdi:calendar-clock"
+
+    def test_ups_mode_button(self):
+        btn = MarstekUPSModeButton(_make_coord(), _make_entry())
+        assert btn._mode == MODE_UPS
+        assert btn._attr_name == "UPS mode"
+        assert btn._attr_icon == "mdi:power-plug"
 
     def test_ble_mac_absent_falls_back_to_wifi_mac(self):
         btn = MarstekAutoModeButton(_make_coord(), _make_entry(ble_mac=None))
@@ -257,6 +328,11 @@ class TestMarstekModeButtonBuildModeConfig:
         config = _make_single_btn(mode=MODE_MANUAL)._build_mode_config()
         assert config["mode"] == MODE_MANUAL
         assert config["manual_cfg"] == dict(DEFAULT_MANUAL_MODE_CFG)
+
+    def test_ups(self):
+        config = _make_single_btn(mode=MODE_UPS)._build_mode_config()
+        assert config["mode"] == MODE_UPS
+        assert "ups_cfg" in config
 
     def test_unknown_returns_empty(self):
         assert _make_single_btn(mode="Unknown")._build_mode_config() == {}
@@ -365,7 +441,7 @@ class TestMarstekModeButtonAsyncPress:
 # ===========================================================================
 
 class TestMarstekMultiDeviceModeButtonInit:
-    _device_data = {"ble_mac": "aabbccddeeff", "device": "VenusA", "firmware": "147"}
+    _device_data = {"ble_mac": "aabbccddeeff", "device": "VenusA", "firmware": 147}
 
     def test_auto_mode_button(self):
         btn = MarstekMultiDeviceAutoModeButton(
@@ -389,6 +465,13 @@ class TestMarstekMultiDeviceModeButtonInit:
         )
         assert btn._mode == MODE_MANUAL
         assert btn._attr_icon == "mdi:calendar-clock"
+
+    def test_ups_mode_button(self):
+        btn = MarstekMultiDeviceUPSModeButton(
+            _make_multi_coord(), _make_dev_coord(), "aabbccddeeff", self._device_data
+        )
+        assert btn._mode == MODE_UPS
+        assert btn._attr_icon == "mdi:power-plug"
 
     def test_device_name_includes_mac_suffix(self):
         btn = MarstekMultiDeviceAutoModeButton(
@@ -439,6 +522,9 @@ class TestMarstekMultiDeviceModeButtonBuildModeConfig:
     def test_manual(self):
         config = _make_multi_btn(mode=MODE_MANUAL)._build_mode_config()
         assert config["manual_cfg"] == dict(DEFAULT_MANUAL_MODE_CFG)
+
+    def test_ups(self):
+        assert _make_multi_btn(mode=MODE_UPS)._build_mode_config()["mode"] == MODE_UPS
 
     def test_unknown_returns_empty(self):
         assert _make_multi_btn(mode="Unknown")._build_mode_config() == {}

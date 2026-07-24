@@ -79,8 +79,8 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 |  | `power_grid_in` / `power_grid_out` | W | Grid import / export power | Fast | 30 s |
 |  | `grid_power` | W | Grid power (signed) | Fast | 30 s |
 |  | `offgrid_power` | W | Off-grid load | Fast | 30 s |
-|  | `pv_power_es` | W | Solar production reported via ES | Fast | 30 s |
-|  | `total_pv_energy` | kWh | Lifetime PV energy | Fast | 30 s |
+| Venus A / D only | `pv_power_es` | W | Solar production reported via ES | Fast | 30 s |
+| Venus A / D only | `total_pv_energy` | kWh | Lifetime PV energy | Fast | 30 s |
 |  | `total_grid_import` / `total_grid_export` | kWh | Lifetime grid counters | Fast | 30 s |
 |  | `total_load_energy` | kWh | Lifetime load energy | Fast | 30 s |
 |  | `battery_time_to_full` / `battery_time_to_dod` | min | Estimated time to full charge / DOD limit | Fast | 30 s |
@@ -91,9 +91,11 @@ After setup you can return to **Settings → Devices & Services → Marstek Loca
 |  | `pv1_voltage`…`pv4_voltage` | V | Per-MPPT-channel voltage | Fast | 30 s |
 |  | `pv1_current`…`pv4_current` | A | Per-MPPT-channel current | Fast | 30 s |
 |  | `pv1_state`…`pv4_state` | — | Per-MPPT-channel state | Fast | 30 s |
+| **Bluetooth lock (Open API 2.0)** | `Ble_block` | — | On/Off switch | — | — |
+| **LED control (Open API 2.0)** | `Led_Ctrl` | — | On/Off switch | — | — |
 | **Network** | `wifi_rssi` | dBm | Wi-Fi signal | Slow | ~20 min |
 |  | `wifi_ssid`, `wifi_ip`, `wifi_gateway`, `wifi_subnet`, `wifi_dns` | text | Wi-Fi configuration | Slow | ~20 min |
-| **Device info** | `device_model`, `firmware_version`, `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~20 min |
+| **Device info** | `ble_mac`, `wifi_mac`, `device_ip` | text | Identification fields | Slow | ~20 min |
 | **Diagnostics** | `last_message_received` | seconds | Time since the last successful poll | Fast | 30 s |
 
 **Update tiers** (defaults): **Fast** = every scan (30 s) — `ES.GetStatus`, `EM.GetStatus`, `PV.GetStatus` (Venus A/D); **Medium** = every 5 min — `Bat.GetStatus`, `ES.GetMode`; **Slow** = every 20 min — `Marstek.GetDevice`, `Wifi.GetStatus`, `BLE.GetStatus`. The fast scan interval, medium interval, and slow interval are each independently configurable in seconds via the integration options.
@@ -104,11 +106,12 @@ Every sensor listed above also exists in an aggregated form under the **Marstek 
 
 Each battery exposes three button entities for quick mode switching:
 
-- `button.marstek_ai_mode` - Switch to AI mode
 - `button.marstek_auto_mode` - Switch to Auto mode
+- `button.marstek_ai_mode` - Switch to AI mode
 - `button.marstek_manual_mode` - Switch to Manual mode
+- `button.marstek_ups_mode` - Switch to UPS mode (Open API 2.0)
 
-The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, or Passive). **Passive mode** requires parameters (power and duration) and can only be activated via the `set_passive_mode` service (see Services section below).
+The `sensor.marstek_operating_mode` displays the current active mode (Auto, AI, Manual, Passive, or UPS). **Passive mode** requires parameters (power and duration) and can only be activated via the `set_passive_mode` service (see Services section below).
 
 ---
 

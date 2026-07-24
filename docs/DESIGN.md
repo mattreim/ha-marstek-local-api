@@ -148,13 +148,13 @@ marstek_local_api/
 
 | Field | Type | Sensor | Description |
 |-------|------|--------|-------------|
-| mode | string | ✅ Select | Operating mode (Auto/AI/Manual/Passive) |
+| mode | string | ✅ Select | Operating mode (Auto/AI/Manual/Passive/UPS) |
 | ongrid_power | number | ✅ Sensor | Current grid power (W) |
 | offgrid_power | number | ✅ Sensor | Current off-grid power (W) |
 | bat_soc | number | ✅ Sensor | Battery SOC (%) |
 
 **Method:** `ES.SetMode` (Control)
-- Set operating mode: Auto, AI, Manual, Passive
+- Set operating mode: Auto, AI, Manual, Passive, UPS
 - Configure time schedules (Manual mode)
 - Set power limits (Passive mode)
 
@@ -735,6 +735,7 @@ Additional sensors for monitoring integration health:
 ## References
 
 - [Marstek Device Open API Rev 1.0](../Marstek_Device_Open_API_EN_.Rev1.0.pdf)
+- [Marstek Device Open API Rev 2.0](../Marstek_Device_Open_API_EN_.Rev2.0.pdf)
 - [Home Assistant Integration Development](https://developers.home-assistant.io/)
 - [ESPHome BLE Gateway](../marstek-ble-gateway/) (for feature comparison)
 - [Existing integrations](../home-assistant-marstek-local-api/) (for lessons learned)

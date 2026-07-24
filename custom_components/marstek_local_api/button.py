@@ -19,9 +19,11 @@ from .const import (
     MODE_AI,
     MODE_AUTO,
     MODE_MANUAL,
+    MODE_UPS,
     RETRY_DELAY,
 )
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
+from .compatibility import CompatibilityMatrix
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +47,8 @@ def _mode_state_from_config(mode: str, config: dict) -> dict:
         state["ai_cfg"] = dict(config["ai_cfg"])
     elif mode == MODE_MANUAL and "manual_cfg" in config:
         state["manual_cfg"] = dict(config["manual_cfg"])
+    elif mode == MODE_UPS and "ups_cfg" in config:
+        state["ups_cfg"] = dict(config["ups_cfg"])
 
     return state
 
@@ -56,6 +60,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up Marstek buttons based on a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+
+    compatibility = CompatibilityMatrix(
+        entry.data.get("device", ""),
+        entry.data.get("firmware", 0),
+    )
 
     entities = []
 
@@ -92,7 +101,24 @@ async def async_setup_entry(
                     device_mac=mac,
                     device_data=device_data,
                 ),
+
             ])
+
+            if compatibility.is_feature_supported("ups_mode"):
+                entities.append(
+                    MarstekMultiDeviceUPSModeButton(
+                        coordinator=coordinator,
+                        device_coordinator=device_coordinator,
+                        device_mac=mac,
+                        device_data=device_data,
+                    ),
+            )
+            else:
+                _LOGGER.debug(
+                    "UPS mode not supported for %s FW %d",
+                    compatibility.base_model,
+                    compatibility.firmware_version,
+                )
     else:
         # Single device mode
         entities.extend([
@@ -100,6 +126,17 @@ async def async_setup_entry(
             MarstekAIModeButton(coordinator, entry),
             MarstekManualModeButton(coordinator, entry),
         ])
+
+        if compatibility.is_feature_supported("ups_mode"):
+            entities.append(
+                MarstekUPSModeButton(coordinator, entry)
+        )
+        else:
+            _LOGGER.debug(
+                "UPS mode not supported for %s FW %d",
+                compatibility.base_model,
+                compatibility.firmware_version,
+            )
 
     async_add_entities(entities)
 
@@ -214,6 +251,11 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
                 "mode": MODE_MANUAL,
                 "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),
             }
+        if self._mode == MODE_UPS:
+            return {
+                "mode": MODE_UPS,
+                "ups_cfg": {"enable": 1},
+            }
 
         return {}
 
@@ -260,6 +302,18 @@ class MarstekManualModeButton(MarstekModeButton):
     ) -> None:
         """Initialize the Manual mode button."""
         super().__init__(coordinator, entry, MODE_MANUAL, "Manual mode", "mdi:calendar-clock")
+
+
+class MarstekUPSModeButton(MarstekModeButton):
+    """Button to switch to UPS mode."""
+
+    def __init__(
+        self,
+        coordinator: MarstekDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the UPS mode button."""
+        super().__init__(coordinator, entry, MODE_UPS, "UPS mode", "mdi:power-plug")
 
 
 class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
@@ -402,6 +456,11 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
                 "mode": MODE_MANUAL,
                 "manual_cfg": dict(DEFAULT_MANUAL_MODE_CFG),
             }
+        if self._mode == MODE_UPS:
+            return {
+                "mode": MODE_UPS,
+                "ups_cfg": {"enable": 1},
+            }
 
         return {}
 
@@ -472,4 +531,20 @@ class MarstekMultiDeviceManualModeButton(MarstekMultiDeviceModeButton):
         """Initialize the Manual mode button."""
         super().__init__(
             coordinator, device_coordinator, device_mac, device_data, MODE_MANUAL, "Manual mode", "mdi:calendar-clock"
+        )
+
+
+class MarstekMultiDeviceUPSModeButton(MarstekMultiDeviceModeButton):
+    """Button to switch to UPS mode in multi-device mode."""
+
+    def __init__(
+        self,
+        coordinator: MarstekMultiDeviceCoordinator,
+        device_coordinator: MarstekDataUpdateCoordinator,
+        device_mac: str,
+        device_data: dict,
+    ) -> None:
+        """Initialize the UPS mode button."""
+        super().__init__(
+            coordinator, device_coordinator, device_mac, device_data, MODE_UPS, "UPS mode", "mdi:power-plug"
         )
