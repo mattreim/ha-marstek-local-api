@@ -194,8 +194,8 @@ class TestESSensorsAbsent:
         val = sensor_map["grid_power"].value_fn(venus_a_coordinator_data)
         assert val is None
 
-    def test_total_pv_energy_none(self, sensor_map, venus_a_coordinator_data):
-        val = sensor_map["total_pv_energy"].value_fn(venus_a_coordinator_data)
+    def test_total_pv_energy_none(self, pv_sensor_map, venus_a_coordinator_data):
+        val = pv_sensor_map["total_pv_energy"].value_fn(venus_a_coordinator_data)
         assert val is None
 
     def test_battery_power_none_when_es_absent(self, sensor_map, venus_a_coordinator_data):
@@ -276,8 +276,8 @@ class TestESSensorsWithData:
     def test_total_load_energy_kwh(self, sensor_map, data_charging):
         assert sensor_map["total_load_energy"].value_fn(data_charging) == pytest.approx(30.0)
 
-    def test_total_pv_energy_kwh(self, sensor_map, data_charging):
-        assert sensor_map["total_pv_energy"].value_fn(data_charging) == pytest.approx(50.0)
+    def test_total_pv_energy_kwh(self, pv_sensor_map, data_charging):
+        assert pv_sensor_map["total_pv_energy"].value_fn(data_charging) == pytest.approx(50.0)
 
     def test_grid_power(self, sensor_map, data_charging):
         assert sensor_map["grid_power"].value_fn(data_charging) == -300
@@ -398,26 +398,26 @@ class TestPVSensors:
 class TestPVPowerEsSensor:
     """pv_power_es reads from pv.pv_power (sum of channels computed by coordinator)."""
 
-    def test_pv_power_es_reads_from_pv_key(self, sensor_map):
+    def test_pv_power_es_reads_from_pv_key(self, pv_sensor_map):
         """Reads pv.pv_power, not es.pv_power."""
         data = {"pv": {"pv_power": 900}, "es": {"pv_power": 0}}
-        assert sensor_map["pv_power_es"].value_fn(data) == 900
+        assert pv_sensor_map["pv_power_es"].value_fn(data) == 900
 
-    def test_pv_power_es_no_pv_data_returns_none(self, sensor_map):
+    def test_pv_power_es_no_pv_data_returns_none(self, pv_sensor_map):
         """No pv key → None."""
-        assert sensor_map["pv_power_es"].value_fn({}) is None
-        assert sensor_map["pv_power_es"].value_fn({"es": {"pv_power": 300}}) is None
+        assert pv_sensor_map["pv_power_es"].value_fn({}) is None
+        assert pv_sensor_map["pv_power_es"].value_fn({"es": {"pv_power": 300}}) is None
 
-    def test_pv_power_es_with_fixture(self, sensor_map, venus_a_coordinator_data):
+    def test_pv_power_es_with_fixture(self, pv_sensor_map, venus_a_coordinator_data):
         """Fixture has pv present with all channels=0 → pv_power absent → None."""
         # The fixture pv has no pv_power key (channels only), so returns None
-        val = sensor_map["pv_power_es"].value_fn(venus_a_coordinator_data)
+        val = pv_sensor_map["pv_power_es"].value_fn(venus_a_coordinator_data)
         assert val is None
 
-    def test_pv_power_es_ignores_es_pv_power(self, sensor_map):
+    def test_pv_power_es_ignores_es_pv_power(self, pv_sensor_map):
         """es.pv_power (always 0 from device) is not used."""
         data = {"es": {"pv_power": 999}}
-        assert sensor_map["pv_power_es"].value_fn(data) is None
+        assert pv_sensor_map["pv_power_es"].value_fn(data) is None
 
 
 # ---------------------------------------------------------------------------

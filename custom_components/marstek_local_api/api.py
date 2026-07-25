@@ -34,6 +34,8 @@ from .const import (
     METHOD_GET_DEVICE,
     METHOD_PV_STATUS,
     METHOD_WIFI_STATUS,
+    METHOD_LED_CTRL,
+    METHOD_BLE_ADV,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -875,6 +877,23 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
             return True
         return False
 
+    async def set_led(self, enabled: bool) -> bool:
+        """Enable or disable status LED."""
+        result = await self.send_command(
+            METHOD_LED_CTRL,
+            {"state": 1 if enabled else 0},
+        )
+
+        return bool(result and result.get("set_result"))
+
+    async def set_ble_adv(self, enabled: bool) -> bool:
+        """Enable or disable Bluetooth lock."""
+        result = await self.send_command(
+            METHOD_BLE_ADV,
+            {"enable": 0 if enabled else 1},
+        )
+
+        return bool(result and result.get("set_result"))
 
 class MarstekProtocol(asyncio.DatagramProtocol):
     """Protocol for handling UDP datagrams.

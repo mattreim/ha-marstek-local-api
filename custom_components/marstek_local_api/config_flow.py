@@ -730,7 +730,7 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Required(CONF_HOST): cv.string,
                     vol.Optional(
                         CONF_PORT, default=DEFAULT_PORT
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1024, max=65535)),
                 }
             ),
             errors=errors,

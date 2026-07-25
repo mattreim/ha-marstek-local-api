@@ -199,6 +199,7 @@ MODE_AUTO = const.MODE_AUTO
 MODE_AI = const.MODE_AI
 MODE_MANUAL = const.MODE_MANUAL
 MODE_PASSIVE = const.MODE_PASSIVE
+MODE_UPS = const.MODE_UPS
 WEEKDAY_MAP = const.WEEKDAY_MAP
 MAX_SCHEDULE_SLOTS = const.MAX_SCHEDULE_SLOTS
 
@@ -413,6 +414,7 @@ async def run_set_passive_mode(target_ip: str | None, power: int, duration: int)
 MODE_CONFIG_MAP = {
     "auto": {"mode": MODE_AUTO, "auto_cfg": {"enable": 1}},
     "ai": {"mode": MODE_AI, "ai_cfg": {"enable": 1}},
+    "ups": {"mode": MODE_UPS, "ups_cfg": {"enable": 1}},
     "manual": {
         "mode": MODE_MANUAL,
         "manual_cfg": {

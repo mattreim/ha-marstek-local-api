@@ -1,8 +1,7 @@
 """Tests for the CompatibilityMatrix scaling logic using Venus A FW 147 fixture data."""
+from __future__ import annotations
+
 import pytest
-
-from conftest import CompatibilityMatrix
-
 
 # ---------------------------------------------------------------------------
 # Venus A FW 147 — expected divisors from SCALING_MATRIX
@@ -10,6 +9,14 @@ from conftest import CompatibilityMatrix
 #   bat_temp, bat_capacity, bat_power, total_grid_*: divisor 1.0 at FW 0+
 #   bat_voltage, bat_current: divisor 100.0 (all FW)
 # ---------------------------------------------------------------------------
+
+from custom_components.marstek_local_api.compatibility import (
+    CompatibilityMatrix,
+    HW_VERSION_2,
+    HW_VERSION_3,
+    get_base_model,
+    parse_hardware_version,
+)
 
 class TestVenusAFirmware147Scaling:
     """Verify scaling factors applied by CompatibilityMatrix for Venus A FW 147."""
@@ -207,3 +214,107 @@ class TestCompatibilityMatrixHardwareVersionParsing:
         """'Venus A' bat_power scaling should work correctly (÷1.0)."""
         m = CompatibilityMatrix(device_model="Venus A", firmware_version=147)
         assert m.scale_value(800, "bat_power") == pytest.approx(800.0)
+
+
+class TestCompatibilityMatrixFallbacks:
+    """Cover fallback branches in scale_value()."""
+
+    def test_no_matching_model_returns_raw(self):
+        """Unknown model -> no matching matrix entries -> raw value."""
+        matrix = CompatibilityMatrix("UnknownDevice", 100)
+
+        assert matrix.scale_value(123, "bat_power") == 123
+
+    def test_no_applicable_firmware_returns_raw(self):
+        """
+        Firmware older than first matrix entry.
+
+        VenusE 3.0 bat_capacity first special entry starts at FW 139.
+        Using FW -1 should exercise:
+            if not applicable_entries:
+                return value
+        """
+        matrix = CompatibilityMatrix("VenusE 3.0", -1)
+
+        assert matrix.scale_value(123, "bat_capacity") == 123
+
+    def test_field_not_in_matrix_returns_raw(self):
+        matrix = CompatibilityMatrix("VenusA", 147)
+
+        assert matrix.scale_value(555, "does_not_exist") == 555
+
+    def test_field_not_in_matrix_none(self):
+        matrix = CompatibilityMatrix("VenusA", 147)
+
+        assert matrix.scale_value(None, "does_not_exist") is None
+
+
+class TestParseHardwareVersion:
+    def test_default_hw2(self):
+        assert parse_hardware_version("VenusE") == HW_VERSION_2
+
+    def test_hw3_detected(self):
+        assert parse_hardware_version("VenusE 3.0") == HW_VERSION_3
+
+    def test_empty_string(self):
+        assert parse_hardware_version("") == HW_VERSION_2
+
+    def test_none(self):
+        assert parse_hardware_version(None) == HW_VERSION_2
+
+
+class TestGetBaseModel:
+    def test_plain_model(self):
+        assert get_base_model("VenusE") == "VenusE"
+
+    def test_hw_suffix_removed(self):
+        assert get_base_model("VenusE 3.0") == "VenusE"
+
+    def test_spaces_removed(self):
+        assert get_base_model("Venus A") == "VenusA"
+
+    def test_empty(self):
+        assert get_base_model("") == ""
+
+
+class TestFeatureSupport:
+    def test_led_supported(self):
+        matrix = CompatibilityMatrix("VenusE", 154)
+        assert matrix.is_feature_supported("led_control") is True
+
+    def test_feature_with_old_fw_not_supported(self):
+        matrix = CompatibilityMatrix("VenusD", 0)
+        assert matrix.is_feature_supported("led_control") is False
+
+    def test_feature_with_hw3(self):
+        matrix = CompatibilityMatrix("VenusE 3.0", 143)
+        assert matrix.is_feature_supported("led_control") is True
+
+    def test_ble_supported(self):
+        matrix = CompatibilityMatrix("VenusE", 154)
+        assert matrix.is_feature_supported("ble_adv") is True
+
+    def test_unknown_feature(self):
+        matrix = CompatibilityMatrix("VenusE", 154)
+        assert matrix.is_feature_supported("unknown_feature") is False
+
+    def test_unknown_model(self):
+        matrix = CompatibilityMatrix("UnknownDevice", 154)
+        assert matrix.is_feature_supported("led_control") is False
+
+
+class TestFeatureSupportFallbacks:
+    def test_unknown_feature_returns_false(self):
+        matrix = CompatibilityMatrix("VenusE", 154)
+
+        assert matrix.is_feature_supported("foobar") is False
+
+    def test_unknown_model_returns_false(self):
+        matrix = CompatibilityMatrix("UnknownModel", 154)
+
+        assert matrix.is_feature_supported("led_control") is False
+
+    def test_fw_before_first_entry_returns_false(self):
+        matrix = CompatibilityMatrix("VenusE 3.0", -1)
+
+        assert matrix.is_feature_supported("led_control") is False

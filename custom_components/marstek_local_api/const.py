@@ -42,6 +42,8 @@ METHOD_ES_STATUS: Final = "ES.GetStatus"
 METHOD_ES_MODE: Final = "ES.GetMode"
 METHOD_ES_SET_MODE: Final = "ES.SetMode"
 METHOD_EM_STATUS: Final = "EM.GetStatus"
+METHOD_LED_CTRL: Final = "Led.Ctrl"
+METHOD_BLE_ADV: Final = "Ble.Adv"
 
 # All API methods for compatibility tracking
 ALL_API_METHODS: Final = [
@@ -53,6 +55,8 @@ ALL_API_METHODS: Final = [
     METHOD_ES_STATUS,
     METHOD_ES_MODE,
     METHOD_EM_STATUS,
+    METHOD_LED_CTRL,
+    METHOD_BLE_ADV,
 ]
 
 # JSON-RPC Error Codes (from API spec)
@@ -73,8 +77,9 @@ MODE_AUTO: Final = "Auto"
 MODE_AI: Final = "AI"
 MODE_MANUAL: Final = "Manual"
 MODE_PASSIVE: Final = "Passive"
+MODE_UPS: Final = "UPS"
 
-OPERATING_MODES: Final = [MODE_AUTO, MODE_AI, MODE_MANUAL, MODE_PASSIVE]
+OPERATING_MODES: Final = [MODE_AUTO, MODE_AI, MODE_MANUAL, MODE_PASSIVE, MODE_UPS]
 
 # Battery states
 BATTERY_STATE_IDLE: Final = "idle"
@@ -94,7 +99,7 @@ DATA_COORDINATOR: Final = "coordinator"
 DATA_DEVICE_INFO: Final = "device_info"
 
 # Platforms
-PLATFORMS: Final = ["sensor", "binary_sensor", "button"]
+PLATFORMS: Final = ["sensor", "binary_sensor", "button", "switch"]
 
 # Services
 SERVICE_REQUEST_SYNC: Final = "request_data_sync"

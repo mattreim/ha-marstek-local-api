@@ -347,24 +347,6 @@ SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
         category="es",
     ),
     MarstekSensorEntityDescription(
-        key="pv_power_es",
-        name="Power Solar",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda data: data.get("pv", {}).get("pv_power"),
-        category="pv",
-    ),
-    MarstekSensorEntityDescription(
-        key="total_pv_energy",
-        name="Energy Total Solar",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda data: _10wh_to_kwh((data.get("es") or {}).get("total_pv_energy")),
-        category="es",
-    ),
-    MarstekSensorEntityDescription(
         key="total_grid_import",
         name="Energy Total Grid Import",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -559,6 +541,24 @@ def _make_pv_channel_sensors() -> list[MarstekSensorEntityDescription]:
 
 # PV sensors (Venus A / D only)
 PV_SENSOR_TYPES: tuple[MarstekSensorEntityDescription, ...] = (
+    MarstekSensorEntityDescription(
+        key="pv_power_es",
+        name="Power Solar",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: data.get("pv", {}).get("pv_power"),
+        category="pv",
+    ),
+    MarstekSensorEntityDescription(
+        key="total_pv_energy",
+        name="Energy Total Solar",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda data: _10wh_to_kwh((data.get("es") or {}).get("total_pv_energy")),
+        category="es",
+    ),
     *_make_pv_channel_sensors(),
 )
 

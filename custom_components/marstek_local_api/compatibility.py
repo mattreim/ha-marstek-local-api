@@ -209,6 +209,44 @@ class CompatibilityMatrix:
             ("VenusC",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
             ("VenusE",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
             ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in W
+        }
+    }
+
+    FEATURE_MATRIX: dict[str, dict[tuple[str, str, int], bool]] = {
+        "led_control": {
+            ("VenusA", HW_VERSION_2, 0): True,     # FW 0+: LED control supported
+            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: LED control supported
+            ("VenusD", HW_VERSION_2, 154): True,   # FW 154+: LED control supported
+            ("VenusC", HW_VERSION_2, 0): False,    # FW 0+: LED control supported
+            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: LED control supported
+            ("VenusE", HW_VERSION_2, 154): True,   # FW 154+: LED control supported
+            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: LED control supported
+            ("VenusE", HW_VERSION_3, 143): True,   # FW 143+: LED control supported
+
+        },
+
+        "ble_adv": {
+            ("VenusA", HW_VERSION_2, 0): True,     # FW 0+: BLE block supported
+            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: BLE block supported
+            ("VenusD", HW_VERSION_2, 154): True,   # FW 154+: BLE block supported
+            ("VenusC", HW_VERSION_2, 0): False,    # FW 0-159: BLE block supported
+            ("VenusC", HW_VERSION_2, 160): True,   # FW 160+: BLE block supported
+            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: BLE block supported
+            ("VenusE", HW_VERSION_2, 154): True,   # FW 154+: BLE block supported
+            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: BLE block supported
+            ("VenusE", HW_VERSION_3, 143): True,   # FW 143+: BLE block supported
+        },
+
+        "ups_mode": {
+            ("VenusA", HW_VERSION_2, 0): True,     # FW 0+: UPS mode supported
+            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: UPS mode supported
+            ("VenusD", HW_VERSION_2, 154): True,   # FW 154+: UPS mode supported
+            ("VenusC", HW_VERSION_2, 0): False,    # FW 0-159: UPS mode supported
+            ("VenusC", HW_VERSION_2, 160): True,   # FW 160+: UPS mode supported
+            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: UPS mode supported
+            ("VenusE", HW_VERSION_2, 154): True,   # FW 154+: UPS mode supported
+            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: UPS mode supported
+            ("VenusE", HW_VERSION_3, 143): True,   # FW 143+: UPS mode supported
         },
     }
 
@@ -285,6 +323,41 @@ class CompatibilityMatrix:
         scaled = value / divisor
 
         return scaled
+
+    def is_feature_supported(self, feature: str) -> bool:
+        """Check whether a feature is supported."""
+
+        if feature not in self.FEATURE_MATRIX:
+            return False
+
+        feature_map = self.FEATURE_MATRIX[feature]
+
+        matching = [
+            (fw_ver, supported)
+            for (base_model, hw_ver, fw_ver), supported
+            in feature_map.items()
+            if (
+                base_model == self.base_model
+                and hw_ver == self.hardware_version
+            )
+        ]
+
+        if not matching:
+            return False
+
+        applicable = [
+            (fw_ver, supported)
+            for fw_ver, supported in matching
+            if fw_ver <= self.firmware_version
+        ]
+
+        if not applicable:
+            return False
+
+        _, supported = max(applicable, key=lambda x: x[0])
+
+        return supported
+
 
     def get_info(self) -> dict[str, Any]:
         """Get compatibility information for diagnostics.

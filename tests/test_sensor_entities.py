@@ -53,7 +53,7 @@ def _make_single_coordinator(device_model: str = "VenusE", data: dict | None = N
     return c
 
 
-def _make_entry(mac: str = "aabbccddee", device: str = "VenusA", firmware: str = "147") -> MagicMock:
+def _make_entry(mac: str = "aabbccddee", device: str = "VenusA", firmware: int = 147) -> MagicMock:
     entry = MagicMock()
     entry.entry_id = "test_entry"
     entry.data = {"ble_mac": mac, "device": device, "firmware": firmware}
@@ -178,7 +178,7 @@ class TestMarstekSensor:
     def test_init_falls_back_to_wifi_mac(self):
         coord = _make_single_coordinator()
         entry = MagicMock()
-        entry.data = {"wifi_mac": "ffeeddccbbaa", "device": "VenusA", "firmware": "147"}
+        entry.data = {"wifi_mac": "ffeeddccbbaa", "device": "VenusA", "firmware": 147}
         sensor = MarstekSensor(coordinator=coord, entity_description=SENSOR_TYPES[0], entry=entry)
         assert "ffeeddccbbaa" in sensor._attr_unique_id
 
@@ -232,7 +232,7 @@ class TestMarstekMultiDeviceSensor:
             device_coordinator=device_coord,
             entity_description=desc,
             device_mac="aa:bb:cc:dd:ee:ff",
-            device_data={"device": "VenusA", "firmware": "147"},
+            device_data={"device": "VenusA", "firmware": 147},
         )
         sensor.coordinator = multi_coord
         return sensor
