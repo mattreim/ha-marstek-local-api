@@ -1,7 +1,7 @@
 """Diagnostics support for Marstek Local API."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -11,8 +11,15 @@ from homeassistant.helpers.redact import async_redact_data
 from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 
-TO_REDACT = ["wifi_name", "ssid", "ble_mac", "wifi_mac", "device_ip"]
-RECENT_FRAMES_LIMIT = 8
+TO_REDACT: Final = (
+    "wifi_name",
+    "ssid",
+    "ble_mac",
+    "wifi_mac",
+    "device_ip",
+    "ip",
+)
+RECENT_FRAMES_LIMIT: Final = 8
 
 
 def _command_compatibility_summary(command_stats: dict[str, Any]) -> dict[str, Any]:
@@ -44,18 +51,28 @@ def _command_stats_snapshot(coordinator: MarstekDataUpdateCoordinator) -> dict[s
 
 
 def _coordinator_snapshot(coordinator: MarstekDataUpdateCoordinator) -> dict[str, Any]:
-    update_interval = coordinator.update_interval.total_seconds() if coordinator.update_interval else None
+    update_interval = (
+        coordinator.update_interval.total_seconds()
+        if coordinator.update_interval
+        else None
+    )
 
     # Get device identification from coordinator data
-    device_info = coordinator.data.get("device", {}) if coordinator.data else {}
+    device_info: dict[str, Any] = coordinator.data.get("device", {}) if coordinator.data else {}
 
-    # Get command stats
+    # Collect command compatibility information
     command_stats = _command_stats_snapshot(coordinator)
     compatibility_summary = _command_compatibility_summary(command_stats)
 
     # Strip source IP/port from raw frames before exposing them
     raw_frames = coordinator.api.get_recent_frames()[-RECENT_FRAMES_LIMIT:]
-    recent_frames = [{"ts": f["ts"], "frame": f["frame"]} for f in raw_frames]
+    recent_frames = [
+        {
+            "ts": frame.get("ts"),
+            "frame": frame.get("frame"),
+        }
+        for frame in raw_frames
+    ]
 
     snapshot = {
         # Device identification
@@ -95,33 +112,39 @@ def _multi_diagnostics(coordinator: MarstekMultiDeviceCoordinator) -> dict[str, 
 
     aggregates = coordinator.data.get("aggregates") if coordinator.data else None
 
+    requested_interval = (
+        coordinator.update_interval.total_seconds()
+        if coordinator.update_interval
+        else None
+    )
+
     return {
-        "requested_interval": coordinator.update_interval.total_seconds() if coordinator.update_interval else None,
+        "requested_interval": requested_interval,
         "devices": devices,
         "aggregates": aggregates,
     }
 
 
 def _entity_states_snapshot(hass: HomeAssistant, entry_id: str) -> dict[str, Any]:
-    """Get current state of all registered entities for this config entry."""
+    """Return current entity states for this config entry."""
+
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, entry_id)
 
-    result = {}
+    result: dict[str, Any] = {}
+
     for entity_entry in sorted(entries, key=lambda e: e.entity_id):
-        if not any(mot in entity_entry.entity_id for mot in TO_REDACT):
-            state = hass.states.get(entity_entry.entity_id)
-            result[entity_entry.entity_id] = {
-                "state": state.state if state else None,
-                "unit": state.attributes.get("unit_of_measurement") if state else None,
-                "last_updated": state.last_updated.isoformat() if state else None,
-            }
-        else:
-            result[entity_entry.entity_id] = {
-                "state": "__REDACTED__",
-                "unit": state.attributes.get("unit_of_measurement") if state else None,
-                "last_updated": state.last_updated.isoformat() if state else None,
-            }
+        state = hass.states.get(entity_entry.entity_id)
+
+        entity_id = entity_entry.entity_id
+        is_redacted = any(token in entity_id for token in TO_REDACT)
+        state = hass.states.get(entity_id)
+
+        result[entity_id] = {
+            "state": "**REDACTED**" if is_redacted else state.state if state else None,
+            "unit": state.attributes.get("unit_of_measurement") if state else None,
+            "last_updated": state.last_updated.isoformat() if state else None,
+        }
 
     return result
 
@@ -135,9 +158,10 @@ async def async_get_config_entry_diagnostics(
         return {"error": "integration_not_initialized"}
 
     coordinator = data.get(DATA_COORDINATOR)
-    entity_states = _entity_states_snapshot(hass, entry.entry_id)
 
     if isinstance(coordinator, MarstekMultiDeviceCoordinator):
+        entity_states = _entity_states_snapshot(hass, entry.entry_id)
+
         return {
             "entry": {
                 "title": entry.title,
@@ -148,6 +172,8 @@ async def async_get_config_entry_diagnostics(
         }
 
     if isinstance(coordinator, MarstekDataUpdateCoordinator):
+        entity_states = _entity_states_snapshot(hass, entry.entry_id)
+
         return {
             "entry": {
                 "title": entry.title,

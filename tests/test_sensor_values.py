@@ -313,6 +313,7 @@ class TestEMSensors:
 # ---------------------------------------------------------------------------
 
 class TestWiFiSensors:
+
     def test_rssi(self, sensor_map, venus_a_coordinator_data):
         assert sensor_map["wifi_rssi"].value_fn(venus_a_coordinator_data) == -27
 
@@ -337,6 +338,7 @@ class TestWiFiSensors:
 # ---------------------------------------------------------------------------
 
 class TestDeviceSensors:
+
     def test_ble_mac(self, sensor_map, venus_a_coordinator_data):
         assert sensor_map["ble_mac"].value_fn(venus_a_coordinator_data) == "bc2a33600dca"
 
@@ -352,6 +354,7 @@ class TestDeviceSensors:
 # ---------------------------------------------------------------------------
 
 class TestOperatingModeSensor:
+
     def test_mode_auto(self, sensor_map, venus_a_coordinator_data):
         assert sensor_map["operating_mode"].value_fn(venus_a_coordinator_data) == "Auto"
 
@@ -368,6 +371,7 @@ class TestOperatingModeSensor:
 # ---------------------------------------------------------------------------
 
 class TestDiagnosticSensor:
+
     def test_last_message_seconds(self, sensor_map, venus_a_coordinator_data):
         val = sensor_map["last_message_received"].value_fn(venus_a_coordinator_data)
         assert val == 5
@@ -425,6 +429,7 @@ class TestPVPowerEsSensor:
 # ---------------------------------------------------------------------------
 
 class TestAvailableCapacityEdgeCases:
+
     def test_full_battery(self, sensor_map):
         data = {"battery": {"bat_capacity": 4160.0, "rated_capacity": 4160.0}}
         val = sensor_map["battery_available_capacity"].value_fn(data)

@@ -97,6 +97,21 @@ class TestVenusAFirmware147Scaling:
         assert self.m.scale_value(None, "nonexistent_field") is None
 
 
+class TestCompatibilityInfo:
+
+    def test_get_info(self):
+        matrix = CompatibilityMatrix(device_model="Venus A", firmware_version=147)
+
+        info = matrix.get_info()
+
+        assert info == {
+            "device_model": "Venus A",
+            "base_model": "VenusA",
+            "hardware_version": "2.0",
+            "firmware_version": 147,
+        }
+
+
 class TestCompatibilityMatrixFirmwareBoundary:
     """Verify that the firmware version boundary lookup selects the correct entry."""
 
@@ -130,11 +145,15 @@ class TestCompatibilityMatrixFirmwareBoundary:
         m = CompatibilityMatrix(device_model="VenusD", firmware_version=154)
         assert m.scale_value(290, "bat_temp") == pytest.approx(290.0)
 
+    def test_scale_negative_float(self):
+        m = CompatibilityMatrix(device_model="VenusA", firmware_version=147)
+        assert m.scale_value(-5050.0, "bat_voltage") == pytest.approx(-50.5)
+
 
 class TestPVPowerScaling:
     """Verify pv_power scaling: Venus A ÷10, all other models unchanged."""
 
-    def test_venus_a_pv_power_high_fw_still_scaled(self):
+    def test_venus_a_pv_power_fw147_scaled(self):
         """VenusA FW 0+: raw in deca-W → divide by 10."""
         m = CompatibilityMatrix(device_model="VenusA", firmware_version=147)
         assert m.scale_value(1000, "pv_power") == pytest.approx(100.0)
@@ -147,23 +166,23 @@ class TestPVPowerScaling:
         m = CompatibilityMatrix(device_model="VenusA", firmware_version=147)
         assert m.scale_value(None, "pv_power") is None
 
-    def test_venus_a_pv_power_high_fw_still_scaled(self):
+    def test_venus_a_pv_power_future_fw_scale(self):
         """VenusA FW 999 (future): still uses FW 0 entry → ÷10."""
         m = CompatibilityMatrix(device_model="VenusA", firmware_version=999)
         assert m.scale_value(500, "pv_power") == pytest.approx(50.0)
 
     def test_venus_d_pv_power_high_fw_still_scaled(self):
-        """VenusD has no pv_power entry → raw value returned unchanged."""
+        """VenusD FW 154: pv_power uses divisor 10."""
         m = CompatibilityMatrix(device_model="VenusD", firmware_version=154)
         assert m.scale_value(1000, "pv_power") == pytest.approx(100.0)
 
     def test_venus_e_pv_power_high_fw_still_scaled(self):
-        """VenusE has no pv_power entry → raw value returned unchanged."""
+        """VenusE FW 200: pv_power uses divisor 10."""
         m = CompatibilityMatrix(device_model="VenusE", firmware_version=200)
         assert m.scale_value(1000, "pv_power") == pytest.approx(100.0)
 
     def test_venus_c_pv_power_high_fw_still_scaled(self):
-        """VenusC has no pv_power entry → raw value returned unchanged."""
+        """VenusC FW 154: pv_power uses divisor 10."""
         m = CompatibilityMatrix(device_model="VenusC", firmware_version=154)
         assert m.scale_value(1000, "pv_power") == pytest.approx(100.0)
 
@@ -238,18 +257,13 @@ class TestCompatibilityMatrixFallbacks:
 
         assert matrix.scale_value(123, "bat_capacity") == 123
 
-    def test_field_not_in_matrix_returns_raw(self):
+    def test_zero_division_not_possible(self):
         matrix = CompatibilityMatrix("VenusA", 147)
-
-        assert matrix.scale_value(555, "does_not_exist") == 555
-
-    def test_field_not_in_matrix_none(self):
-        matrix = CompatibilityMatrix("VenusA", 147)
-
-        assert matrix.scale_value(None, "does_not_exist") is None
+        assert matrix.scale_value(0, "bat_voltage") == 0
 
 
 class TestParseHardwareVersion:
+
     def test_default_hw2(self):
         assert parse_hardware_version("VenusE") == HW_VERSION_2
 
@@ -264,6 +278,7 @@ class TestParseHardwareVersion:
 
 
 class TestGetBaseModel:
+
     def test_plain_model(self):
         assert get_base_model("VenusE") == "VenusE"
 
@@ -273,13 +288,24 @@ class TestGetBaseModel:
     def test_spaces_removed(self):
         assert get_base_model("Venus A") == "VenusA"
 
+    def test_unknown_hw_version(self):
+        assert parse_hardware_version("VenusX 4.2") == "4.2"
+
+    def test_version_suffix_removed_with_text(self):
+        assert get_base_model("VenusE 3.0 Beta") == "VenusE"
+
     def test_empty(self):
         assert get_base_model("") == ""
 
 
 class TestFeatureSupport:
+
     def test_led_supported(self):
         matrix = CompatibilityMatrix("VenusE", 154)
+        assert matrix.is_feature_supported("led_control") is True
+
+    def test_led_boundary(self):
+        matrix = CompatibilityMatrix("VenusD", 154)
         assert matrix.is_feature_supported("led_control") is True
 
     def test_feature_with_old_fw_not_supported(self):
@@ -294,6 +320,14 @@ class TestFeatureSupport:
         matrix = CompatibilityMatrix("VenusE", 154)
         assert matrix.is_feature_supported("ble_adv") is True
 
+    def test_ble_boundary_venus_c(self):
+        matrix = CompatibilityMatrix("VenusC", 160)
+        assert matrix.is_feature_supported("ble_adv") is True
+
+    def test_ble_before_boundary_venus_c(self):
+        matrix = CompatibilityMatrix("VenusC", 159)
+        assert matrix.is_feature_supported("ble_adv") is False
+
     def test_unknown_feature(self):
         matrix = CompatibilityMatrix("VenusE", 154)
         assert matrix.is_feature_supported("unknown_feature") is False
@@ -302,19 +336,25 @@ class TestFeatureSupport:
         matrix = CompatibilityMatrix("UnknownDevice", 154)
         assert matrix.is_feature_supported("led_control") is False
 
+    def test_ups_supported(self):
+        matrix = CompatibilityMatrix("VenusE", 154)
+        assert matrix.is_feature_supported("ups_mode") is True
+
+    def test_ups_not_supported_old_fw(self):
+        matrix = CompatibilityMatrix("VenusD", 100)
+        assert matrix.is_feature_supported("ups_mode") is False
+
+    def test_ups_boundary_venus_c(self):
+        matrix = CompatibilityMatrix("VenusC", 160)
+        assert matrix.is_feature_supported("ups_mode") is True
+
+    def test_ups_before_boundary_venus_c(self):
+        matrix = CompatibilityMatrix("VenusC", 159)
+        assert matrix.is_feature_supported("ups_mode") is False
+
 
 class TestFeatureSupportFallbacks:
-    def test_unknown_feature_returns_false(self):
-        matrix = CompatibilityMatrix("VenusE", 154)
-
-        assert matrix.is_feature_supported("foobar") is False
-
-    def test_unknown_model_returns_false(self):
-        matrix = CompatibilityMatrix("UnknownModel", 154)
-
-        assert matrix.is_feature_supported("led_control") is False
 
     def test_fw_before_first_entry_returns_false(self):
         matrix = CompatibilityMatrix("VenusE 3.0", -1)
-
         assert matrix.is_feature_supported("led_control") is False

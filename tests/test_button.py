@@ -131,6 +131,7 @@ def _make_multi_btn(mode=None, coord=None, dev_coord=None, mac="aabbccddeeff"):
 # ===========================================================================
 
 class TestModeStateFromConfig:
+
     def test_auto_with_cfg(self):
         result = _mode_state_from_config(MODE_AUTO, {"auto_cfg": {"enable": 1}})
         assert result == {"mode": MODE_AUTO, "auto_cfg": {"enable": 1}}
@@ -173,6 +174,7 @@ class TestModeStateFromConfig:
 # ===========================================================================
 
 class TestAsyncSetupEntry:
+
     async def test_single_device_with_ups(self):
         coord = _make_coord()
         hass = MagicMock()
@@ -214,7 +216,6 @@ class TestAsyncSetupEntry:
 
         assert len(entities) == 4
         assert any(isinstance(e, MarstekUPSModeButton) for e in entities)
-
 
     async def test_multi_device_without_ups(self):
         macs = ["aa", "bb"]
@@ -262,6 +263,7 @@ class TestAsyncSetupEntry:
 # ===========================================================================
 
 class TestMarstekModeButtonInit:
+
     def test_auto_mode_button(self):
         btn = MarstekAutoModeButton(_make_coord(), _make_entry())
         assert btn._mode == MODE_AUTO
@@ -297,6 +299,7 @@ class TestMarstekModeButtonInit:
 # ===========================================================================
 
 class TestMarstekModeButtonAvailable:
+
     def test_available_with_data(self):
         assert _make_single_btn(data={"battery": {}}).available is True
 
@@ -314,6 +317,7 @@ class TestMarstekModeButtonAvailable:
 # ===========================================================================
 
 class TestMarstekModeButtonBuildModeConfig:
+
     def test_auto(self):
         config = _make_single_btn(mode=MODE_AUTO)._build_mode_config()
         assert config["mode"] == MODE_AUTO
@@ -343,6 +347,7 @@ class TestMarstekModeButtonBuildModeConfig:
 # ===========================================================================
 
 class TestMarstekModeButtonUpdateCachedMode:
+
     def test_no_existing_data(self):
         coord = _make_coord()
         coord.data = None
@@ -366,6 +371,7 @@ class TestMarstekModeButtonUpdateCachedMode:
 # ===========================================================================
 
 class TestMarstekModeButtonRefreshModeData:
+
     async def test_succeeds(self):
         coord = _make_coord()
         btn = _make_single_btn(coord=coord)
@@ -384,6 +390,7 @@ class TestMarstekModeButtonRefreshModeData:
 # ===========================================================================
 
 class TestMarstekModeButtonAsyncPress:
+
     async def test_success_first_attempt(self):
         coord = _make_coord()
         btn = _make_single_btn(mode=MODE_AUTO, coord=coord)
@@ -441,6 +448,7 @@ class TestMarstekModeButtonAsyncPress:
 # ===========================================================================
 
 class TestMarstekMultiDeviceModeButtonInit:
+
     _device_data = {"ble_mac": "aabbccddeeff", "device": "VenusA", "firmware": 147}
 
     def test_auto_mode_button(self):
@@ -492,6 +500,7 @@ class TestMarstekMultiDeviceModeButtonInit:
 # ===========================================================================
 
 class TestMarstekMultiDeviceModeButtonAvailable:
+
     def test_available_with_data(self):
         coord = _make_multi_coord()
         coord.get_device_data = MagicMock(return_value={"battery": {}})
@@ -513,6 +522,7 @@ class TestMarstekMultiDeviceModeButtonAvailable:
 # ===========================================================================
 
 class TestMarstekMultiDeviceModeButtonBuildModeConfig:
+
     def test_auto(self):
         assert _make_multi_btn(mode=MODE_AUTO)._build_mode_config()["mode"] == MODE_AUTO
 
@@ -535,6 +545,7 @@ class TestMarstekMultiDeviceModeButtonBuildModeConfig:
 # ===========================================================================
 
 class TestMarstekMultiDeviceModeButtonUpdateCaches:
+
     def test_update_device_cache_no_existing_mode(self):
         dev_coord = _make_dev_coord()
         dev_coord.data = {}
@@ -581,6 +592,7 @@ class TestMarstekMultiDeviceModeButtonUpdateCaches:
 # ===========================================================================
 
 class TestMarstekMultiDeviceModeButtonRefreshModeData:
+
     async def test_both_succeed(self):
         dev_coord = _make_dev_coord()
         coord = _make_multi_coord()
@@ -619,6 +631,7 @@ class TestMarstekMultiDeviceModeButtonRefreshModeData:
 # ===========================================================================
 
 class TestMarstekMultiDeviceModeButtonAsyncPress:
+
     async def test_success_first_attempt(self):
         dev_coord = _make_dev_coord()
         btn = _make_multi_btn(mode=MODE_AUTO, dev_coord=dev_coord)

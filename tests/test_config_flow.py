@@ -9,6 +9,8 @@ import pytest
 
 from tests.conftest import _DhcpServiceInfo, _load_integration_module
 
+from homeassistant.exceptions import HomeAssistantError
+
 # Ensure config_flow is loaded fresh with our stubs (not with real HA modules
 # that pytest-homeassistant-custom-component may have pre-loaded).
 sys.modules.pop("custom_components.marstek_local_api.config_flow", None)
@@ -46,40 +48,44 @@ def _make_config_flow():
 
 def _make_options_flow(devices=None, options=None, entry_data=None):
     """Return an OptionsFlow instance with all parent methods mocked."""
-    flow = OptionsFlow()
-    flow.hass = MagicMock()
-    flow.hass.data = {}
-    flow.hass.config_entries = MagicMock()
+
     entry = MagicMock()
     entry.options = options or {}
+
     if entry_data is not None:
         entry.data = entry_data
     elif devices is not None:
         entry.data = {"devices": devices}
     else:
         entry.data = {}
-    # Set via _config_entry to avoid the deprecated property setter in real HA
-    # (OptionsFlow.config_entry getter reads from self._config_entry when present)
+
+    flow = OptionsFlow(entry)
+
+    flow.hass = MagicMock()
+    flow.hass.data = {}
+    flow.hass.config_entries = MagicMock()
+
     flow._config_entry = entry
+
     flow.async_show_form = MagicMock(side_effect=lambda **kw: {"type": "form", **kw})
     flow.async_create_entry = MagicMock(side_effect=lambda **kw: {"type": "create_entry", **kw})
     flow.async_abort = MagicMock(side_effect=lambda **kw: {"type": "abort", **kw})
+
     return flow
 
+def _mock_api(discover_result=None):
+    """Return a mocked MarstekUDPClient."""
+    api = AsyncMock()
+    api.discover_devices.return_value = discover_result or []
 
-def _mock_api(discover_result=None, connect_raises=None, discover_raises=None):
-    """Return a mock MarstekUDPClient class."""
-    mock_instance = AsyncMock()
-    if connect_raises:
-        mock_instance.connect.side_effect = connect_raises
-    if discover_raises:
-        mock_instance.discover_devices.side_effect = discover_raises
-    elif discover_result is not None:
-        mock_instance.discover_devices.return_value = discover_result
-    else:
-        mock_instance.discover_devices.return_value = []
-    mock_cls = MagicMock(return_value=mock_instance)
-    return mock_cls, mock_instance
+    cls = MagicMock(return_value=api)
+    return cls, api
+
+
+@pytest.fixture(autouse=True)
+def patch_sleep():
+    with patch("asyncio.sleep", new=AsyncMock()):
+        yield
 
 
 _SAMPLE_DEVICE = {
@@ -106,6 +112,7 @@ _SAMPLE_DEVICE2 = {
 # ---------------------------------------------------------------------------
 
 class TestValidateInput:
+
     async def test_success(self):
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
@@ -139,36 +146,38 @@ class TestValidateInput:
 
         mock_api.disconnect.assert_called_once()
 
-    async def test_title_uses_ble_mac(self):
-        mock_cls, mock_api = _mock_api()
-        mock_api.get_device_info.return_value = {
-            "device": "VenusA",
-            "ver": 147,
-            "ble_mac": "aabbccddeeff",
-        }
-        with patch.object(_cf, "MarstekUDPClient", mock_cls):
-            result = await validate_input(MagicMock(), {"host": "192.168.1.1", "port": 8899})
+    @pytest.mark.parametrize(
+        ("device_info", "expected"),
+        [
+            (
+                {
+                    "device": "VenusA",
+                    "ver": 147,
+                    "ble_mac": "aabbccddeeff",
+                },
+                "aabbccddeeff",
+            ),
+            (
+                {
+                    "device": "VenusA",
+                    "ver": 147,
+                    "wifi_mac": "wifi123",
+                },
+                "wifi123",
+            ),
+            (
+                {
+                    "device": "VenusA",
+                    "ver": 147,
+                },
+                "Unknown",
+            ),
+        ],
+    )
 
-        assert "aabbccddeeff" in result["title"]
-
-    async def test_title_fallback_to_wifi_mac(self):
-        mock_cls, mock_api = _mock_api()
-        mock_api.get_device_info.return_value = {
-            "device": "VenusA",
-            "ver": 147,
-            "wifi_mac": "wifi123",
-        }
-        with patch.object(_cf, "MarstekUDPClient", mock_cls):
-            result = await validate_input(MagicMock(), {"host": "192.168.1.1", "port": 8899})
-
-        assert "wifi123" in result["title"]
-
-    async def test_title_fallback_to_unknown(self):
-        mock_cls, mock_api = _mock_api()
-        mock_api.get_device_info.return_value = {
-            "device": "VenusA",
-            "ver": 147,
-        }
+    async def test_title_generation(self, device_info, expected):
+        mock_cls, api = _mock_api()
+        api.get_device_info.return_value = device_info
 
         with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await validate_input(
@@ -176,7 +185,7 @@ class TestValidateInput:
                 {"host": "192.168.1.1", "port": 8899},
             )
 
-        assert "Unknown" in result["title"]
+        assert expected in result["title"]
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +193,7 @@ class TestValidateInput:
 # ---------------------------------------------------------------------------
 
 class TestConfigFlowInit:
+
     def test_init(self):
         flow = _make_config_flow()
         assert flow._discovered_devices == []
@@ -191,8 +201,7 @@ class TestConfigFlowInit:
     async def test_async_step_user_calls_discovery(self):
         flow = _make_config_flow()
         mock_cls, mock_api = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_user()
 
         assert result["type"] == "form"
@@ -208,11 +217,11 @@ class TestConfigFlowInit:
 # ---------------------------------------------------------------------------
 
 class TestConfigFlowDiscoveryNoInput:
+
     async def test_single_device_shows_form(self):
         flow = _make_config_flow()
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         assert result["type"] == "form"
@@ -221,8 +230,7 @@ class TestConfigFlowDiscoveryNoInput:
     async def test_multiple_devices_includes_all_option(self):
         flow = _make_config_flow()
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE, _SAMPLE_DEVICE2])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         assert result["type"] == "form"
@@ -230,8 +238,7 @@ class TestConfigFlowDiscoveryNoInput:
     async def test_zero_devices_goes_to_manual(self):
         flow = _make_config_flow()
         mock_cls, _ = _mock_api(discover_result=[])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         # manual step shows a form too
@@ -242,8 +249,7 @@ class TestConfigFlowDiscoveryNoInput:
         flow = _make_config_flow()
         mock_cls, mock_api = _mock_api()
         mock_api.connect.side_effect = OSError("connection refused")
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         assert result["type"] == "form"
@@ -255,8 +261,7 @@ class TestConfigFlowDiscoveryNoInput:
         mock_cls, mock_api = _mock_api()
         mock_api.connect.side_effect = OSError("oops")
         mock_api.disconnect.side_effect = OSError("also oops")
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         assert result["type"] == "form"
@@ -275,8 +280,7 @@ class TestConfigFlowDiscoveryNoInput:
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: mock_coordinator}}}
 
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         mock_coordinator.api.disconnect.assert_called_once()
@@ -298,8 +302,7 @@ class TestConfigFlowDiscoveryNoInput:
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: mock_coordinator}}}
 
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         sub_api.disconnect.assert_called_once()
@@ -316,8 +319,7 @@ class TestConfigFlowDiscoveryNoInput:
         flow.hass.data = {DOMAIN: {"entry1": {}}}
 
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         assert result["type"] == "form"
@@ -336,8 +338,7 @@ class TestConfigFlowDiscoveryNoInput:
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: mock_coordinator}}}
 
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         # Warning is logged, flow continues
@@ -353,8 +354,7 @@ class TestConfigFlowDiscoveryNoInput:
         flow.hass.data = {DOMAIN: {}}  # entry_id not present
 
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
         assert result["type"] == "form"
@@ -381,8 +381,7 @@ class TestConfigFlowDiscoveryNoInput:
 
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
 
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery()
 
         assert result["type"] == "form"
@@ -393,6 +392,7 @@ class TestConfigFlowDiscoveryNoInput:
 # ---------------------------------------------------------------------------
 
 class TestConfigFlowDiscoveryWithInput:
+
     def _flow_with_devices(self, devices):
         flow = _make_config_flow()
         flow._discovered_devices = devices
@@ -460,8 +460,7 @@ class TestConfigFlowDiscoveryWithInput:
 
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
 
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery()
 
         assert result["type"] == "form"
@@ -472,39 +471,63 @@ class TestConfigFlowDiscoveryWithInput:
 # ---------------------------------------------------------------------------
 
 class TestConfigFlowManual:
+
     async def test_no_input_shows_form(self):
         flow = _make_config_flow()
         result = await flow.async_step_manual(user_input=None)
         assert result["type"] == "form"
         assert result["step_id"] == "manual"
 
-    async def test_success_with_ble_mac(self):
+    @pytest.mark.parametrize(
+        ("device_info", "expect_unique_id"),
+        [
+            (
+                {
+                    "device": "VenusA",
+                    "ver": 147,
+                    "ble_mac": "aabb",
+                    "wifi_mac": "ccdd",
+                },
+                True,
+            ),
+            (
+                {
+                    "device": "VenusA",
+                    "ver": 147,
+                    "wifi_mac": "ccdd",
+                },
+                False,
+            ),
+        ],
+    )
+
+    async def test_manual_success(self, device_info, expect_unique_id):
         flow = _make_config_flow()
-        mock_cls, mock_api = _mock_api()
-        mock_api.get_device_info.return_value = {
-            "device": "VenusA", "ver": 147,
-            "ble_mac": "aabb", "wifi_mac": "ccdd",
-        }
-        user_input = {"host": "192.168.1.1", "port": 8899}
+
+        mock_cls, api = _mock_api()
+        api.get_device_info.return_value = device_info
+
         with patch.object(_cf, "MarstekUDPClient", mock_cls):
-            result = await flow.async_step_manual(user_input=user_input)
+            result = await flow.async_step_manual(
+                {"host": "192.168.1.1", "port": 8899}
+            )
 
         assert result["type"] == "create_entry"
-        flow.async_set_unique_id.assert_called_once_with("aabb")
 
-    async def test_success_no_ble_mac(self):
-        flow = _make_config_flow()
-        mock_cls, mock_api = _mock_api()
-        mock_api.get_device_info.return_value = {
-            "device": "VenusA", "ver": 147,
-            "wifi_mac": "ccdd",
-        }
-        user_input = {"host": "192.168.1.1", "port": 8899}
-        with patch.object(_cf, "MarstekUDPClient", mock_cls):
-            result = await flow.async_step_manual(user_input=user_input)
+        if expect_unique_id:
+            flow.async_set_unique_id.assert_called_once_with("aabb")
+        else:
+            flow.async_set_unique_id.assert_not_called()
 
-        assert result["type"] == "create_entry"
-        flow.async_set_unique_id.assert_not_called()
+    def test_cannot_connect_without_message(self):
+        err = CannotConnect()
+
+        assert isinstance(err, HomeAssistantError)
+
+    def test_cannot_connect_empty_message(self):
+        err = CannotConnect("")
+
+        assert str(err) == ""
 
     async def test_cannot_connect_sets_error(self):
         flow = _make_config_flow()
@@ -534,6 +557,7 @@ class TestConfigFlowManual:
 # ---------------------------------------------------------------------------
 
 class TestConfigFlowDhcp:
+
     async def test_success_with_ble_mac(self):
         flow = _make_config_flow()
         mock_cls, mock_api = _mock_api()
@@ -604,6 +628,7 @@ class TestConfigFlowDhcp:
 # ---------------------------------------------------------------------------
 
 class TestConfigFlowDiscoveryConfirm:
+
     async def test_no_input_shows_form(self):
         flow = _make_config_flow()
         flow.context = {"title_placeholders": {"name": "VenusA"}}
@@ -628,6 +653,7 @@ class TestConfigFlowDiscoveryConfirm:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowInit:
+
     async def test_no_devices_shows_limited_actions(self):
         flow = _make_options_flow()
         result = await flow.async_step_init(user_input=None)
@@ -642,7 +668,7 @@ class TestOptionsFlowInit:
     async def test_devices_populated_from_config_entry(self):
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         # _devices is initially empty; init populates from config_entry
-        assert flow._devices == []
+        assert flow._devices == [_SAMPLE_DEVICE]
         await flow.async_step_init(user_input=None)
         assert flow._devices == [_SAMPLE_DEVICE]
 
@@ -669,8 +695,7 @@ class TestOptionsFlowInit:
     async def test_action_add_device(self):
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         mock_cls, _ = _mock_api(discover_result=[])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_init(user_input={"action": "add_device"})
         assert result["step_id"] == "add_device"
 
@@ -690,6 +715,7 @@ class TestOptionsFlowInit:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowScanInterval:
+
     async def test_no_input_shows_form(self):
         flow = _make_options_flow()
         result = await flow.async_step_scan_interval(user_input=None)
@@ -747,6 +773,7 @@ class TestOptionsFlowScanInterval:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowBatterySettings:
+
     async def test_no_input_shows_form(self):
         flow = _make_options_flow()
         result = await flow.async_step_battery_settings(user_input=None)
@@ -766,6 +793,7 @@ class TestOptionsFlowBatterySettings:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowRenameDevice:
+
     async def test_no_devices_aborts(self):
         flow = _make_options_flow()
         result = await flow.async_step_rename_device(user_input=None)
@@ -803,7 +831,7 @@ class TestOptionsFlowRenameDevice:
         d = {**_SAMPLE_DEVICE, "device": "Old Name"}
         flow = _make_options_flow(devices=[d])
         flow._devices = [d]
-        flow.config_entry.data = {"devices": [d]}
+        flow._config_entry.data = {"devices": [d]}
         result = await flow.async_step_rename_device(user_input={"device": 0, "name": "New Name"})
         assert result["type"] == "create_entry"
         flow.hass.config_entries.async_update_entry.assert_called_once()
@@ -815,6 +843,7 @@ class TestOptionsFlowRenameDevice:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowRemoveDevice:
+
     async def test_no_devices_aborts(self):
         flow = _make_options_flow()
         result = await flow.async_step_remove_device(user_input=None)
@@ -852,7 +881,7 @@ class TestOptionsFlowRemoveDevice:
     async def test_success_removes_device(self):
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE, _SAMPLE_DEVICE2])
         flow._devices = [_SAMPLE_DEVICE, _SAMPLE_DEVICE2]
-        flow.config_entry.data = {"devices": [_SAMPLE_DEVICE, _SAMPLE_DEVICE2]}
+        flow._config_entry.data = {"devices": [_SAMPLE_DEVICE, _SAMPLE_DEVICE2]}
         result = await flow.async_step_remove_device(user_input={"device": 0})
         assert result["type"] == "create_entry"
         assert len(flow._devices) == 1
@@ -864,6 +893,7 @@ class TestOptionsFlowRemoveDevice:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowAddDevice:
+
     async def test_no_devices_aborts(self):
         flow = _make_options_flow()
         result = await flow.async_step_add_device(user_input=None)
@@ -873,8 +903,7 @@ class TestOptionsFlowAddDevice:
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE2])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_add_device(user_input=None)
 
         assert result["type"] == "form"
@@ -886,8 +915,7 @@ class TestOptionsFlowAddDevice:
         flow._devices = [_SAMPLE_DEVICE]
         # discover same device as already configured
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_add_device(user_input=None)
 
         assert result["type"] == "form"
@@ -930,7 +958,7 @@ class TestOptionsFlowAddDevice:
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
         flow._discovered_devices = [_SAMPLE_DEVICE2]
-        flow.config_entry.data = {"devices": [_SAMPLE_DEVICE]}
+        flow._config_entry.data = {"devices": [_SAMPLE_DEVICE]}
         result = await flow.async_step_add_device(user_input={"device": _SAMPLE_DEVICE2["mac"]})
         assert result["type"] == "create_entry"
         assert len(flow._devices) == 2
@@ -944,7 +972,7 @@ class TestOptionsFlowAddDevice:
         discovered["wifi_mac"] = None
 
         flow._discovered_devices = [discovered]
-        flow.config_entry.data = {"devices": [_SAMPLE_DEVICE]}
+        flow._config_entry.data = {"devices": [_SAMPLE_DEVICE]}
 
         result = await flow.async_step_add_device(
             user_input={"device": discovered["mac"]}
@@ -959,6 +987,7 @@ class TestOptionsFlowAddDevice:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowAddDeviceManual:
+
     async def test_no_devices_aborts(self):
         flow = _make_options_flow()
         result = await flow.async_step_add_device_manual(user_input=None)
@@ -988,7 +1017,7 @@ class TestOptionsFlowAddDeviceManual:
     async def test_success_new_device(self):
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
-        flow.config_entry.data = {"devices": [_SAMPLE_DEVICE]}
+        flow._config_entry.data = {"devices": [_SAMPLE_DEVICE]}
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
             "device": "VenusB", "ver": 147,
@@ -1005,7 +1034,7 @@ class TestOptionsFlowAddDeviceManual:
         """mac is None → any(...) is False → device is added."""
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
-        flow.config_entry.data = {"devices": [_SAMPLE_DEVICE]}
+        flow._config_entry.data = {"devices": [_SAMPLE_DEVICE]}
         mock_cls, mock_api = _mock_api()
         mock_api.get_device_info.return_value = {
             "device": "VenusC", "ver": 147,
@@ -1041,7 +1070,7 @@ class TestOptionsFlowAddDeviceManual:
     async def test_manual_add_uses_wifi_mac_when_ble_missing(self):
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
-        flow.config_entry.data = {"devices": [_SAMPLE_DEVICE]}
+        flow._config_entry.data = {"devices": [_SAMPLE_DEVICE]}
 
         mock_cls, mock_api = _mock_api()
 
@@ -1068,13 +1097,13 @@ class TestOptionsFlowAddDeviceManual:
 # ---------------------------------------------------------------------------
 
 class TestOptionsFlowAsyncDiscoverDevices:
+
     async def test_no_domain_in_hass_data(self):
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
         flow.hass.data = {}  # no DOMAIN key
         mock_cls, _ = _mock_api(discover_result=[_SAMPLE_DEVICE2])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()
 
         assert _SAMPLE_DEVICE2 in flow._discovered_devices
@@ -1087,8 +1116,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         coordinator.device_coordinators = {"dev1": MagicMock(api=sub_api)}
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: coordinator}}}
         mock_cls, _ = _mock_api(discover_result=[])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()
 
         sub_api.disconnect.assert_called_once()
@@ -1101,8 +1129,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         coordinator.api = AsyncMock()
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: coordinator}}}
         mock_cls, _ = _mock_api(discover_result=[])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()
 
         coordinator.api.disconnect.assert_called_once()
@@ -1113,8 +1140,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         flow._devices = [_SAMPLE_DEVICE]
         flow.hass.data = {DOMAIN: {"entry1": {}}}  # no DATA_COORDINATOR
         mock_cls, _ = _mock_api(discover_result=[])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()
 
         assert flow._discovered_devices == []
@@ -1126,8 +1152,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         flow.hass.data = {}
         mock_cls, mock_api = _mock_api()
         mock_api.connect.side_effect = OSError("refused")
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()
 
         assert flow._discovered_devices == []
@@ -1139,8 +1164,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         flow.hass.data = {}
         mock_cls, mock_api = _mock_api(discover_result=[])
         mock_api.disconnect.side_effect = OSError("disconnect fail")
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()  # should not raise
 
     async def test_resume_client_fails_logs_warning(self):
@@ -1152,8 +1176,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         coordinator.api.connect.side_effect = OSError("reconnect failed")
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: coordinator}}}
         mock_cls, _ = _mock_api(discover_result=[])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()  # should not raise
 
     async def test_multi_device_api_none_skipped(self):
@@ -1175,8 +1198,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
 
         mock_cls, _ = _mock_api(discover_result=[])
 
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()
 
         assert flow._discovered_devices == []
@@ -1198,8 +1220,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
 
         mock_cls, _ = _mock_api(discover_result=[])
 
-        with patch.object(_cf, "MarstekUDPClient", mock_cls), \
-             patch("asyncio.sleep", new_callable=AsyncMock):
+        with patch.object(_cf, "MarstekUDPClient", mock_cls):
             await flow._async_discover_devices()
 
         assert flow._discovered_devices == []
@@ -1210,7 +1231,10 @@ class TestOptionsFlowAsyncDiscoverDevices:
 # ---------------------------------------------------------------------------
 
 class TestCannotConnect:
-    def test_is_exception(self):
+
+    def test_is_homeassistant_error(self):
         err = CannotConnect("msg")
+
+        assert isinstance(err, HomeAssistantError)
         assert isinstance(err, Exception)
         assert str(err) == "msg"

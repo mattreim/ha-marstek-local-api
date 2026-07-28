@@ -4,9 +4,7 @@ Tests the _calculate_aggregates() logic in isolation, using coordinator data
 dicts built from the Venus A FW 147 fixture as a single-device base, then
 extended to multi-device scenarios.
 """
-import importlib
-import sys
-from unittest.mock import MagicMock
+from types import SimpleNamespace
 
 import pytest
 
@@ -22,8 +20,6 @@ MarstekMultiDeviceCoordinator = _coordinator_mod.MarstekMultiDeviceCoordinator
 
 def _make_multi_coordinator(device_data_list: list[dict]) -> MarstekMultiDeviceCoordinator:
     """Build a MarstekMultiDeviceCoordinator with pre-populated device coordinators."""
-    hass = MagicMock()
-    hass.data = {}
     coordinator = MarstekMultiDeviceCoordinator.__new__(MarstekMultiDeviceCoordinator)
     coordinator.devices = []
     coordinator.device_coordinators = {}
@@ -31,9 +27,8 @@ def _make_multi_coordinator(device_data_list: list[dict]) -> MarstekMultiDeviceC
     coordinator.dod_percent = 88
 
     for i, device_data in enumerate(device_data_list):
-        mac = f"aabbccdd{i:04x}"
-        device_coord = MagicMock()
-        device_coord.data = device_data
+        mac = f"AA:BB:CC:DD:EE:{i:02X}"
+        device_coord = SimpleNamespace(data=device_data)
         coordinator.device_coordinators[mac] = device_coord
 
     return coordinator
@@ -44,6 +39,8 @@ def _make_multi_coordinator(device_data_list: list[dict]) -> MarstekMultiDeviceC
 # ---------------------------------------------------------------------------
 
 class TestAggregatesSingleDevice:
+    """Test aggregate calculation with one Venus device."""
+
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
         return _make_multi_coordinator([venus_a_coordinator_data])
@@ -99,9 +96,10 @@ class TestAggregatesSingleDevice:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesSingleDeviceCharging:
+
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
-        # power_battery = pv(1500) - ongrid(500) - offgrid(0) = 1000 W (charging)
+        # ES.GetStatus.bat_power is used directly
         data = {
             **venus_a_coordinator_data,
             "es": {
@@ -154,6 +152,7 @@ class TestAggregatesSingleDeviceCharging:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesSingleDeviceDischarging:
+
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
         # power_battery = pv(0) - ongrid(800) - offgrid(0) = -800 W (discharging)
@@ -172,12 +171,19 @@ class TestAggregatesSingleDeviceDischarging:
     def test_combined_state_discharging(self, coordinator):
         assert coordinator._calculate_aggregates()["combined_state"] == "discharging"
 
+    def test_battery_discharging(self):
+        coordinator = _make_multi_coordinator([{"pv": {"pv_power": 0}, "es": {"ongrid_power": 500, "offgrid_power": 0,}}])
+        agg = coordinator._calculate_aggregates()
+        assert agg["total_power_out"] == 500
+        assert agg["combined_state"] == "discharging"
+
 
 # ---------------------------------------------------------------------------
 # Two devices — same state
 # ---------------------------------------------------------------------------
 
 class TestAggregatesTwoDevicesBothCharging:
+
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
         # power_battery = pv - ongrid - offgrid: dev1=1000, dev2=500
@@ -211,6 +217,7 @@ class TestAggregatesTwoDevicesBothCharging:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesTwoDevicesConflicting:
+
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
         # dev1: pv(800) - ongrid(0) = +800; dev2: pv(0) - ongrid(600) = -600
@@ -230,6 +237,7 @@ class TestAggregatesTwoDevicesConflicting:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesTwoDevicesPartlyCharging:
+
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
         # dev1: pv(600) - ongrid(0) = +600; dev2: all zeros = 0
@@ -246,6 +254,7 @@ class TestAggregatesTwoDevicesPartlyCharging:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesTwoDevicesPartlyDischarging:
+
     @pytest.fixture
     def coordinator(self, venus_a_coordinator_data):
         # dev1: pv(0) - ongrid(500) = -500; dev2: all zeros = 0
@@ -265,6 +274,7 @@ class TestAggregatesTwoDevicesPartlyDischarging:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesZeroCapacity:
+
     @pytest.fixture
     def coordinator(self):
         # Device with rated_capacity=0 → total_capacity==0
@@ -285,6 +295,7 @@ class TestAggregatesZeroCapacity:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesDodZero:
+
     def test_usable_soc_none_when_dod_zero(self, venus_a_coordinator_data):
         coordinator = _make_multi_coordinator([venus_a_coordinator_data])
         coordinator.dod_percent = 0
@@ -297,6 +308,7 @@ class TestAggregatesDodZero:
 # ---------------------------------------------------------------------------
 
 class TestAggregatesEmpty:
+
     def test_no_devices(self):
         coordinator = _make_multi_coordinator([])
         agg = coordinator._calculate_aggregates()
@@ -304,10 +316,22 @@ class TestAggregatesEmpty:
 
     def test_device_with_no_data(self):
         coordinator = _make_multi_coordinator([])
-        # Add a coordinator with None data
-        mac = "000000000000"
-        device_coord = MagicMock()
-        device_coord.data = None
-        coordinator.device_coordinators[mac] = device_coord
+        coordinator.device_coordinators["AA:BB:CC:DD:EE:00"] = (SimpleNamespace(data=None))
+        assert coordinator._calculate_aggregates() == {}
+
+    def test_missing_battery_section(self):
+        coordinator = _make_multi_coordinator([{"es": {"bat_power": 100}}])
         agg = coordinator._calculate_aggregates()
-        assert agg == {}
+        assert agg["total_rated_capacity"] == 0
+
+    def test_missing_es_section_defaults_to_zero(self):
+        coordinator = _make_multi_coordinator([{"battery": {"rated_capacity": 4000, "bat_capacity": 1000, "soc": 25}}])
+        agg = coordinator._calculate_aggregates()
+        assert agg["total_battery_power"] == 0
+        assert agg["total_power_in"] == 0
+        assert agg["total_power_out"] == 0
+
+    def test_device_with_none_data(self):
+        coordinator = _make_multi_coordinator([])
+        coordinator.device_coordinators["AA"] = SimpleNamespace(data=None)
+        assert coordinator._calculate_aggregates() == {}

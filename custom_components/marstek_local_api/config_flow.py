@@ -360,16 +360,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Get the options flow for this handler."""
-        return OptionsFlow()
+        """Return the options flow."""
+        return OptionsFlow(config_entry)
 
 
 class OptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Marstek Local API."""
 
-    def __init__(self) -> None:
-        """Initialise the options flow."""
-        self._devices: list[dict[str, Any]] = []
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialise options flow."""
+        self._config_entry = config_entry
+        self._devices: list[dict[str, Any]] = list(config_entry.data.get("devices", []))
         self._discovered_devices: list[dict[str, Any]] = []
 
     async def async_step_init(
@@ -377,9 +378,6 @@ class OptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Entry-point for options flow; present available actions."""
         # Lazily populate _devices from config_entry (available as property from parent)
-        if not self._devices:
-            self._devices = list(self.config_entry.data.get("devices", []))
-
         actions = {
             "scan_interval": "scan_interval",
             "battery_settings": "battery_settings",
@@ -421,9 +419,9 @@ class OptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Adjust polling interval and communication parameters."""
         if user_input is not None:
-            return self.async_create_entry(title="", data={**self.config_entry.options, **user_input})
+            return self.async_create_entry(title="", data={**self._config_entry.options, **user_input})
 
-        opts = self.config_entry.options
+        opts = self._config_entry.options
         return self.async_show_form(
             step_id="scan_interval",
             data_schema=vol.Schema(
@@ -469,9 +467,9 @@ class OptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Configure battery parameters (informational only, does not configure the device)."""
         if user_input is not None:
-            return self.async_create_entry(title="", data={**self.config_entry.options, **user_input})
+            return self.async_create_entry(title="", data={**self._config_entry.options, **user_input})
 
-        opts = self.config_entry.options
+        opts = self._config_entry.options
         return self.async_show_form(
             step_id="battery_settings",
             data_schema=vol.Schema(
@@ -516,9 +514,9 @@ class OptionsFlow(config_entries.OptionsFlow):
                 updated_device["device"] = new_name
                 updated_devices[device_index] = updated_device
 
-                new_data = {**self.config_entry.data, "devices": updated_devices}
+                new_data = {**self._config_entry.data, "devices": updated_devices}
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry,
+                    self._config_entry,
                     data=new_data,
                 )
                 self._devices = updated_devices
@@ -580,9 +578,9 @@ class OptionsFlow(config_entries.OptionsFlow):
                     for idx, device in enumerate(self._devices)
                     if idx != device_index
                 ]
-                new_data = {**self.config_entry.data, "devices": updated_devices}
+                new_data = {**self._config_entry.data, "devices": updated_devices}
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry,
+                    self._config_entry,
                     data=new_data,
                 )
                 self._devices = updated_devices
@@ -655,9 +653,9 @@ class OptionsFlow(config_entries.OptionsFlow):
                             "firmware": device["firmware"],
                         }
                     )
-                    new_data = {**self.config_entry.data, "devices": updated_devices}
+                    new_data = {**self._config_entry.data, "devices": updated_devices}
                     self.hass.config_entries.async_update_entry(
-                        self.config_entry,
+                        self._config_entry,
                         data=new_data,
                     )
                     self._devices = updated_devices
@@ -709,9 +707,9 @@ class OptionsFlow(config_entries.OptionsFlow):
                             "firmware": info.get("firmware"),
                         }
                     )
-                    new_data = {**self.config_entry.data, "devices": updated_devices}
+                    new_data = {**self._config_entry.data, "devices": updated_devices}
                     self.hass.config_entries.async_update_entry(
-                        self.config_entry,
+                        self._config_entry,
                         data=new_data,
                     )
                     self._devices = updated_devices

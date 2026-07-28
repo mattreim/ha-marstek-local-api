@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -15,7 +18,11 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     """Set up switches."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
@@ -63,12 +70,8 @@ class MarstekBaseSwitch(CoordinatorEntity, RestoreEntity, SwitchEntity):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
 
-        self.coordinator = coordinator
-
         device_id = entry.data.get("ble_mac") or entry.data.get("wifi_mac")
-
         self._attr_unique_id = f"{device_id}_switch"
-
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             name=f"Marstek {entry.data.get('device', 'Unknown')}",

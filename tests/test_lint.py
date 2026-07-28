@@ -5,28 +5,44 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_PATH = REPO_ROOT / "custom_components" / "marstek_local_api"
 PYLINTRC = REPO_ROOT / ".pylintrc"
 
 
-def test_pylint_integration_source():
-    """Run pylint on the integration and fail if the score drops below 10.00."""
+def test_pylint_integration_source() -> None:
+    """Run pylint on the integration source."""
+
+    assert PYLINTRC.exists(), ".pylintrc not found"
+    assert SOURCE_PATH.exists(), "Integration source not found"
+
     result = subprocess.run(
         [
-            sys.executable, "-m", "pylint",
-            f"--rcfile={PYLINTRC}",
+            sys.executable,
+            "-m",
+            "pylint",
+            "--rcfile",
+            str(PYLINTRC),
             "--fail-under=10.0",
             str(SOURCE_PATH),
         ],
         capture_output=True,
         text=True,
         check=False,
+        timeout=300,
     )
 
     if result.returncode != 0:
-        output = result.stdout + result.stderr
-        # Extract only the meaningful lines (issues + score), skip empty lines
-        lines = [l for l in output.splitlines() if l.strip() and not l.startswith("---")]
-        report = "\n".join(lines)
-        raise AssertionError(f"Pylint reported issues:\n\n{report}")
+        output = "\n".join(
+            part for part in (result.stdout, result.stderr) if part
+        )
+
+        report = "\n".join(
+            line
+            for line in output.splitlines()
+            if line.strip() and not line.startswith("---")
+        )
+
+        pytest.fail(f"Pylint reported issues:\n\n{report}")

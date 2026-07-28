@@ -4,9 +4,9 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -23,10 +23,9 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 # (mirrors the approach in test/test_tool.py)
 # ---------------------------------------------------------------------------
 
-def _make_module(name: str, **attrs):
-    mod = type(sys)("homeassistant." + name.lstrip("homeassistant."))
-    for k, v in attrs.items():
-        setattr(mod, k, v)
+def _make_module(name: str, **attrs: object) -> ModuleType:
+    mod = ModuleType("homeassistant." + name.lstrip("homeassistant."))
+    mod.__dict__.update(attrs)
     return mod
 
 
@@ -95,16 +94,20 @@ class _UnitOfTime:
 
 class _DataUpdateCoordinator:
     """Stub base class for coordinators."""
-    def __init__(self, *a, **kw):
-        if a:
-            self.hass = a[0]
-        self.update_interval = kw.get("update_interval")
+
+    def __init__(self, *args, **kwargs):
+        if args:
+            self.hass = args[0]
+
+        self.update_interval = kwargs.get("update_interval")
         self.data = None
+        self.last_update_success = True
 
 
 class _CoordinatorEntity:
     """Stub base class to avoid duplicate-base conflicts."""
-    def __init__(self, coordinator=None, *a, **kw): pass
+    def __init__(self, coordinator=None, *a, **kw):
+        self.coordinator = coordinator
 
 
 class _SensorEntity:
@@ -129,6 +132,10 @@ class _OptionsFlowBase:
     """Stub base class for options flows."""
 
 
+class _DeviceInfo(dict):
+    """Minimal DeviceInfo stub."""
+
+
 class _DhcpServiceInfo:
     def __init__(self, ip: str, hostname: str = "", macaddress: str = ""):
         self.ip = ip
@@ -136,10 +143,14 @@ class _DhcpServiceInfo:
         self.macaddress = macaddress
 
 
+class _HomeAssistantError(Exception):
+    """Stub for Home Assistant base exception."""
+
+
 def _install_ha_stubs() -> None:
     """Register minimal HA stubs so integration modules can be imported."""
     stubs = {
-        "homeassistant": type(sys)("homeassistant"),
+        "homeassistant": ModuleType("homeassistant"),
         "homeassistant.core": _make_module("core", HomeAssistant=object),
         "homeassistant.helpers": type(sys)("homeassistant.helpers"),
         "homeassistant.helpers.update_coordinator": _make_module(
@@ -148,7 +159,7 @@ def _install_ha_stubs() -> None:
             UpdateFailed=Exception,
             CoordinatorEntity=_CoordinatorEntity,
         ),
-        "homeassistant.helpers.entity": _make_module("helpers.entity", DeviceInfo=dict),
+        "homeassistant.helpers.entity": _make_module("helpers.entity", DeviceInfo=_DeviceInfo),
         "homeassistant.helpers.entity_platform": _make_module(
             "helpers.entity_platform", AddEntitiesCallback=object
         ),
@@ -164,7 +175,7 @@ def _install_ha_stubs() -> None:
             "helpers.selector",
             NumberSelector=lambda *a, **kw: None,
             NumberSelectorConfig=lambda *a, **kw: None,
-            NumberSelectorMode=type("NumberSelectorMode", (), {"BOX": "box"})(),
+            NumberSelectorMode=SimpleNamespace(BOX="box"),
         ),
         "homeassistant.config_entries": _make_module(
             "config_entries",
@@ -173,7 +184,7 @@ def _install_ha_stubs() -> None:
             OptionsFlow=_OptionsFlowBase,
         ),
         "homeassistant.data_entry_flow": _make_module("data_entry_flow", FlowResult=dict),
-        "homeassistant.exceptions": _make_module("exceptions", HomeAssistantError=Exception),
+        "homeassistant.exceptions": _make_module("exceptions", HomeAssistantError=_HomeAssistantError),
         "homeassistant.components": type(sys)("homeassistant.components"),
         "homeassistant.components.dhcp": _make_module("components.dhcp", DhcpServiceInfo=_DhcpServiceInfo),
         "homeassistant.components.sensor": _make_module(
@@ -197,7 +208,12 @@ def _install_ha_stubs() -> None:
             "const",
             CONF_HOST="host",
             PERCENTAGE="%",
-            Platform=type("Platform", (), {"SENSOR": "sensor", "BINARY_SENSOR": "binary_sensor", "BUTTON": "button"})(),
+            Platform=SimpleNamespace(
+                SENSOR="sensor",
+                BINARY_SENSOR="binary_sensor",
+                BUTTON="button",
+                SWITCH="switch",
+            ),
             UnitOfEnergy=_UnitOfEnergy(),
             UnitOfPower=_UnitOfPower(),
             UnitOfTemperature=_UnitOfTemperature(),
@@ -205,7 +221,16 @@ def _install_ha_stubs() -> None:
             UnitOfElectricCurrent=_UnitOfElectricCurrent(),
             UnitOfTime=_UnitOfTime(),
         ),
-        "voluptuous": _make_module("voluptuous", Schema=lambda *a, **kw: None, Required=lambda x: x, Optional=lambda x, **kw: x, All=lambda *a: a[0], Coerce=lambda t: t, Range=lambda **kw: None, In=lambda x: None),
+        "voluptuous": _make_module(
+            "voluptuous",
+            Schema=lambda *a, **kw: None,
+            Required=lambda x: x,
+            Optional=lambda x, **kw: x,
+            All=lambda *a: a[0],
+            Coerce=lambda t: t,
+            Range=lambda **kw: None,
+            In=lambda x: None,
+        ),
     }
     # Modules that must always be replaced — the real HA versions have property
     # machinery (deprecation guards, metaclasses) that break unit tests.
@@ -224,16 +249,16 @@ _install_ha_stubs()
 # Load integration modules
 # ---------------------------------------------------------------------------
 
-def _load_integration_module(name: str):
+def _load_integration_module(name: str) -> ModuleType:
     package = "custom_components.marstek_local_api"
 
     # Ensure package stubs exist
     if "custom_components" not in sys.modules:
-        pkg = type(sys)("custom_components")
+        pkg = ModuleType("custom_components")
         pkg.__path__ = [str(INTEGRATION_PATH.parent)]
         sys.modules["custom_components"] = pkg
     if package not in sys.modules:
-        pkg = type(sys)(package)
+        pkg = ModuleType(package)
         pkg.__path__ = [str(INTEGRATION_PATH)]
         sys.modules[package] = pkg
 
@@ -274,7 +299,6 @@ def venus_a_fw147_raw() -> dict:
     """Raw fixture data as captured from the Venus A FW 147 device."""
     path = FIXTURES_DIR / "Venus_A_fw147" / "all.json"
     data = json.loads(path.read_text())
-    # Strip metadata key
     return {k: v for k, v in data.items() if not k.startswith("_")}
 
 
@@ -307,25 +331,24 @@ def venus_a_coordinator_data(venus_a_fw147_raw, venus_a_compatibility) -> dict:
         "pv": raw.get("pv"),
         "mode": raw.get("mode"),
         "em": raw.get("em"),
-        # es deliberately absent — mirrors a first-poll where ES.GetStatus timed out
         "_diagnostic": {"last_message_seconds": 5, "target_interval": 10, "actual_interval": 10},
         "_config": {"dod_percent": 88},
     }
 
 
 @pytest.fixture
-def sensor_map() -> dict:
+def sensor_map() -> dict[str, object]:
     """Dict of sensor key → description for fast lookup."""
     return {desc.key: desc for desc in SENSOR_TYPES}
 
 
 @pytest.fixture
-def pv_sensor_map() -> dict:
+def pv_sensor_map() -> dict[str, object]:
     """Dict of PV sensor key → description."""
     return {desc.key: desc for desc in PV_SENSOR_TYPES}
 
 
 @pytest.fixture
-def binary_sensor_map() -> dict:
+def binary_sensor_map() -> dict[str, object]:
     """Dict of binary sensor key → description."""
     return {desc.key: desc for desc in BINARY_SENSOR_TYPES}

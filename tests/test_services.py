@@ -120,6 +120,7 @@ async def _setup_handlers(hass: MagicMock) -> dict:
 # ---------------------------------------------------------------------------
 
 class TestDaysToWeekSet:
+
     def test_single_day(self):
         assert _days_to_week_set(["mon"]) == 1
 

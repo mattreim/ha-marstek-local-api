@@ -90,6 +90,18 @@ class TestSendCommandAutoConnect:
         assert len(connect_called) == 1
         assert result is None  # timed out, but connect was invoked
 
+    async def test_send_command_reraises_send_exception(self):
+        client = _make_client(command_timeout=1, command_max_attempts=1)
+        _inject_connected(client)
+
+        async def fail(_):
+            raise RuntimeError("boom")
+
+        client._send_to_host = fail
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await client.send_command("Bat.GetStatus")
+
 
 # ---------------------------------------------------------------------------
 # send_command — generic exception, retry backoff, raise last_exception
@@ -214,6 +226,26 @@ class TestBroadcast:
                 await client.broadcast("ping")
 
         client.transport.sendto.assert_called_once()
+
+    async def test_broadcast_connects_if_needed(self):
+        client = _make_client()
+
+        with (
+            patch.object(client, "connect", new_callable=AsyncMock),
+            patch.object(client, "_get_broadcast_address", return_value="255.255.255.255"),
+        ):
+            transport = _make_mock_transport()
+            client.transport = transport
+
+            await client.broadcast("hello")
+
+        transport.sendto.assert_called_once()
+
+    def test_get_broadcast_address_fallback(self):
+        client = _make_client()
+
+        with patch.object(client, "_get_broadcast_addresses", return_value=[]):
+            assert client._get_broadcast_address() == "255.255.255.255"
 
 
 # ---------------------------------------------------------------------------
@@ -490,3 +522,15 @@ class TestMarstekProtocolDispatch:
         """error_received() logs and does not raise."""
         protocol = MarstekProtocol()
         protocol.error_received(OSError("UDP error"))  # Must not raise
+
+    def test_protocol_error_received(self):
+        proto = MarstekProtocol()
+
+        with patch.object(_api_mod._LOGGER, "error") as log:
+            proto.error_received(RuntimeError("boom"))
+
+        log.assert_called_once()
+
+    def test_marstek_api_error(self):
+        err = MarstekAPIError("boom")
+        assert str(err) == "boom"

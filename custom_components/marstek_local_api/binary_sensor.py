@@ -138,7 +138,7 @@ class MarstekBinarySensor(CoordinatorEntity, BinarySensorEntity):
             identifiers={(DOMAIN, device_mac)},
             name=f"Marstek {entry.data['device']}",
             manufacturer="Marstek",
-            model=entry.data["device"],
+            model=entry.data.get("device"),
             sw_version=str(entry.data.get("firmware", "Unknown")),
         )
 

@@ -151,7 +151,7 @@ class MarstekMultiDeviceCoordinator(DataUpdateCoordinator):
             return aggregates
 
         # Power aggregates — battery power = PV - Grid - Off-grid
-        def _device_battery_power(d: dict) -> float:
+        def _device_battery_power(d: dict[str, Any]) -> float:
             es = d.get("es") or {}
             pv = (d.get("pv") or {}).get("pv_power", 0) or 0
             return pv - (es.get("ongrid_power", 0) or 0) - (es.get("offgrid_power", 0) or 0)

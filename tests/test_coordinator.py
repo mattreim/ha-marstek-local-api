@@ -93,6 +93,7 @@ def _make_coord(**overrides):
 # ---------------------------------------------------------------------------
 
 class TestMarstekDataUpdateCoordinatorInit:
+
     def test_basic_init(self):
         hass = MagicMock()
         api = _make_api()
@@ -169,6 +170,7 @@ class TestMarstekDataUpdateCoordinatorInit:
 # ---------------------------------------------------------------------------
 
 class TestMarstekMultiDeviceCoordinatorInit:
+
     def test_basic_init(self):
         hass = MagicMock()
         devices = [{"host": "192.168.1.1", "port": 30000, "ble_mac": "aabbccddeeff", "device": "VenusA", "firmware": 147}]
@@ -199,6 +201,7 @@ class TestMarstekMultiDeviceCoordinatorInit:
 # ---------------------------------------------------------------------------
 
 class TestMarstekMultiDeviceCoordinatorAsyncSetup:
+
     async def test_successful_setup_ble_mac(self):
         hass = MagicMock()
         devices = [{
@@ -257,6 +260,7 @@ class TestMarstekMultiDeviceCoordinatorAsyncSetup:
 # ---------------------------------------------------------------------------
 
 class TestGetDeviceMacs:
+
     def test_returns_list_of_macs(self):
         coord = MarstekMultiDeviceCoordinator.__new__(MarstekMultiDeviceCoordinator)
         coord.device_coordinators = {"aabbcc": MagicMock(), "112233": MagicMock()}
@@ -270,6 +274,7 @@ class TestGetDeviceMacs:
 
 
 class TestGetDeviceData:
+
     def test_known_mac_with_data(self):
         coord = MarstekMultiDeviceCoordinator.__new__(MarstekMultiDeviceCoordinator)
         coord.device_coordinators = {}
@@ -297,6 +302,7 @@ class TestGetDeviceData:
 # ---------------------------------------------------------------------------
 
 class TestMultiDeviceAsyncUpdateData:
+
     async def test_basic_update(self):
         coord = MarstekMultiDeviceCoordinator.__new__(MarstekMultiDeviceCoordinator)
         coord.dod_percent = 88
@@ -334,6 +340,7 @@ class TestMultiDeviceAsyncUpdateData:
 # ---------------------------------------------------------------------------
 
 class TestUpdateDeviceVersion:
+
     def test_no_change(self):
         coord = _make_coord(firmware_version=147, device_model=DEVICE_MODEL_VENUS_A)
         original_compat = coord.compatibility
@@ -423,6 +430,7 @@ class TestUpdateDeviceVersion:
 # ---------------------------------------------------------------------------
 
 class TestGetSecondsSinceLastMessage:
+
     def test_returns_none_when_no_timestamp(self):
         coord = _make_coord()
         assert coord._get_seconds_since_last_message() is None
@@ -440,6 +448,7 @@ class TestGetSecondsSinceLastMessage:
 # ---------------------------------------------------------------------------
 
 class TestIsCategoryFresh:
+
     def test_static_categories_always_fresh(self):
         coord = _make_coord()
         for cat in ("device", "wifi", "ble", "mode", "_diagnostic", "aggregates"):
@@ -466,6 +475,7 @@ class TestIsCategoryFresh:
 # ---------------------------------------------------------------------------
 
 class TestBuildCommandDiagnostics:
+
     def test_none_stats_returns_empty(self):
         coord = _make_coord()
         assert coord._build_command_diagnostics("es", None) == {}
@@ -517,6 +527,7 @@ class TestBuildCommandDiagnostics:
 # ---------------------------------------------------------------------------
 
 class TestAsyncUpdateData:
+
     @pytest.fixture(autouse=True)
     def patch_sleep(self):
         with patch("custom_components.marstek_local_api.coordinator.asyncio.sleep", new=AsyncMock()):
@@ -611,6 +622,12 @@ class TestAsyncUpdateData:
         coord.api.get_es_status = AsyncMock(side_effect=Exception("Timeout"))
         data = await coord._async_update_data()
         assert "es" not in data
+
+    async def test_es_status_offgrid_power_signed_conversion(self):
+        coord = _make_coord(data={"old": "data"})
+        coord.api.get_es_status = AsyncMock(return_value={"offgrid_power": 65535})
+        data = await coord._async_update_data()
+        assert data["es"]["offgrid_power"] == -1
 
     async def test_em_status_exception_handled(self):
         coord = _make_coord(data={"old": "data"})
@@ -823,6 +840,27 @@ class TestAsyncUpdateData:
         assert data["pv"]["pv3_power"] == pytest.approx(200.0)
         assert data["pv"]["pv4_power"] == pytest.approx(100.0)
 
+    async def test_pv2_power_scaling(self):
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={"pv2_power": 500})
+        data = await coord._async_update_data()
+        assert data["pv"]["pv2_power"] == 500
+
+    async def test_pv3_power_scaling(self):
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={"pv3_power": 100})
+        data = await coord._async_update_data()
+        assert data["pv"]["pv3_power"] == 100
+
+    async def test_pv4_power_scaling(self):
+        coord = _make_coord(data={"old": "data"}, update_count=10)
+        coord.api.get_battery_status = AsyncMock(return_value={"soc": 70})
+        coord.api.get_pv_status = AsyncMock(return_value={"pv4_power": 200})
+        data = await coord._async_update_data()
+        assert data["pv"]["pv4_power"] == 200
+
     async def test_pv_power_computed_as_channel_sum(self):
         """pv_power = pv1+pv2+pv3+pv4 after individual scaling.
         ch1: 1000→100, ch2: 500→500, ch3: 200→200, ch4: 100→100 → sum=900 W."""
@@ -854,3 +892,21 @@ class TestAsyncUpdateData:
         coord = _make_coord(data={"old": "data"}, dod_percent=75)
         data = await coord._async_update_data()
         assert data["_config"]["dod_percent"] == 75
+
+
+class TestAsSigned16:
+
+    def test_none(self):
+        assert _coordinator_mod._as_signed16(None) is None
+
+    def test_positive(self):
+        assert _coordinator_mod._as_signed16(12345) == 12345
+
+    def test_negative(self):
+        assert _coordinator_mod._as_signed16(65535) == -1
+
+    def test_boundary(self):
+        assert _coordinator_mod._as_signed16(32767) == 32767
+
+    def test_boundary_negative(self):
+        assert _coordinator_mod._as_signed16(32768) == -32768

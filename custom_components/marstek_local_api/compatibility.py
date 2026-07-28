@@ -99,153 +99,153 @@ class CompatibilityMatrix:
     # Lookup finds the highest firmware version <= actual device firmware.
     # ============================================================================
 
-    SCALING_MATRIX: dict[str, dict[tuple[str, int], float]] = {
+    SCALING_MATRIX: dict[str, dict[tuple[str, str, int], float]] = {
         # Battery temperature (°C)
         "bat_temp": {
-            ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in °C
-            ("VenusD",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
-            ("VenusD",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in °C
-            ("VenusC",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
-            ("VenusC",HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1)
-            ("VenusE",HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
-            ("VenusE",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in °C
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0-138: raw value in °C
-            ("VenusE",HW_VERSION_3, 139): 10.0,   # FW 139-142: raw value in deca-°C (÷10)
-            ("VenusE",HW_VERSION_3, 143): 1.0,    # FW 142+: raw value in °C
+            ("VenusA", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in °C
+            ("VenusD", HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
+            ("VenusD", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in °C
+            ("VenusC", HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
+            ("VenusC", HW_VERSION_2, 154): 0.1,    # FW 154+: raw value in deci-°C (÷0.1)
+            ("VenusE", HW_VERSION_2, 0): 1.0,      # FW 0-153: raw value in °C
+            ("VenusE", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in °C
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0-138: raw value in °C
+            ("VenusE", HW_VERSION_3, 139): 10.0,   # FW 139-142: raw value in deca-°C (÷10)
+            ("VenusE", HW_VERSION_3, 143): 1.0,    # FW 143+: raw value in °C
         },
 
         # Battery capacity (Wh)
         "bat_capacity": {
-            ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
-            ("VenusD",HW_VERSION_2, 0): 100.0,    # FW 0-153: raw value in centi-Wh (÷100)
-            ("VenusD",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
-            ("VenusC",HW_VERSION_2, 0): 100.0,    # FW 0-153: raw value in centi-Wh (÷100)
-            ("VenusC",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
-            ("VenusE",HW_VERSION_2, 0): 100.0,    # FW 0-153: raw value in centi-Wh (÷100)
-            ("VenusE",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0-138: raw value in Wh
-            ("VenusE",HW_VERSION_3, 139): 0.1,    # FW 139-142: raw value in deci-Wh (÷0.1)
-            ("VenusE",HW_VERSION_3, 143): 1.0,    # FW 142+: raw value in °C
+            ("VenusA", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusD", HW_VERSION_2, 0): 100.0,    # FW 0-153: raw value in centi-Wh (÷100)
+            ("VenusD", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
+            ("VenusC", HW_VERSION_2, 0): 100.0,    # FW 0-153: raw value in centi-Wh (÷100)
+            ("VenusC", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
+            ("VenusE", HW_VERSION_2, 0): 100.0,    # FW 0-153: raw value in centi-Wh (÷100)
+            ("VenusE", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in Wh
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0-138: raw value in Wh
+            ("VenusE", HW_VERSION_3, 139): 0.1,    # FW 139-142: raw value in deci-Wh (÷0.1)
+            ("VenusE", HW_VERSION_3, 143): 1.0,    # FW 143+: raw value in Wh
         },
 
         # Battery power (W)
         "bat_power": {
-            ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in W
-            ("VenusD",HW_VERSION_2, 0): 10.0,     # FW 0-153: raw value in deca-W (÷10)
-            ("VenusD",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in W
-            ("VenusC",HW_VERSION_2, 0): 10.0,     # FW 0-153: raw value in deca-W (÷10)
-            ("VenusC",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in W
-            ("VenusE",HW_VERSION_2, 0): 10.0,     # FW 0-153: raw value in deca-W (÷10)
-            ("VenusE",HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in W
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in W
+            ("VenusA", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in W
+            ("VenusD", HW_VERSION_2, 0): 10.0,     # FW 0-153: raw value in deca-W (÷10)
+            ("VenusD", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in W
+            ("VenusC", HW_VERSION_2, 0): 10.0,     # FW 0-153: raw value in deca-W (÷10)
+            ("VenusC", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in W
+            ("VenusE", HW_VERSION_2, 0): 10.0,     # FW 0-153: raw value in deca-W (÷10)
+            ("VenusE", HW_VERSION_2, 154): 1.0,    # FW 154+: raw value in W
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in W
         },
 
         # Grid import energy (Wh)
         "total_grid_input_energy": {
-            ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
-            ("VenusD",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusD",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusC",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusC",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusE",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusE",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusA", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusD", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusD", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusC", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusC", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusE", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusE", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
         },
 
         # Grid export energy (Wh)
         "total_grid_output_energy": {
-            ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
-            ("VenusD",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusD",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusC",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusC",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusE",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusE",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusA", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusD", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusD", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusC", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusC", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusE", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusE", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
         },
 
         # Load energy (Wh)
         "total_load_energy": {
-            ("VenusA",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
-            ("VenusD",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusD",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusC",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusC",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusE",HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
-            ("VenusE",HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusA", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusD", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusD", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusC", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusC", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusE", HW_VERSION_2, 0): 0.1,      # FW 0-153: raw × 10 = Wh (÷0.1)
+            ("VenusE", HW_VERSION_2, 154): 0.01,   # FW 154+: raw × 100 = Wh (÷0.01)
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
         },
 
         # Battery available capacity (Wh)
         "battery_available_capacity": {
-            ("VenusA",HW_VERSION_2, 0): 1000.0,   # FW 0+: raw value in Wh
-            ("VenusD",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
-            ("VenusC",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
-            ("VenusE",HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusA", HW_VERSION_2, 0): 1000.0,   # FW 0+: raw value in Wh
+            ("VenusD", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusC", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusE", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in Wh
         },
         # Battery voltage (V) - ALWAYS scaled by 100
         "bat_voltage": {
-            ("VenusA",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
-            ("VenusD",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
-            ("VenusC",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
-            ("VenusE",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
-            ("VenusE",HW_VERSION_3, 0): 100.0,    # All FW: raw in centi-V (÷100)
+            ("VenusA", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
+            ("VenusD", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
+            ("VenusC", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
+            ("VenusE", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-V (÷100)
+            ("VenusE", HW_VERSION_3, 0): 100.0,    # All FW: raw in centi-V (÷100)
         },
 
         # Battery current (A) - ALWAYS scaled by 100
         "bat_current": {
-            ("VenusA",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
-            ("VenusD",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
-            ("VenusC",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
-            ("VenusE",HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
-            ("VenusE",HW_VERSION_3, 0): 100.0,    # All FW: raw in centi-A (÷100)
+            ("VenusA", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
+            ("VenusD", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
+            ("VenusC", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
+            ("VenusE", HW_VERSION_2, 0): 100.0,    # All FW: raw in centi-A (÷100)
+            ("VenusE", HW_VERSION_3, 0): 100.0,    # All FW: raw in centi-A (÷100)
         },
 
         # PV power (W) - Venus A/C/D/E returns raw value in deca-W (÷10)
         "pv_power": {
-            ("VenusA",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
-            ("VenusD",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
-            ("VenusC",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
-            ("VenusE",HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
-            ("VenusE",HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in W
+            ("VenusA", HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusD", HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusC", HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusE", HW_VERSION_2, 0): 10.0,     # FW 0+: raw value in deca-W (÷10)
+            ("VenusE", HW_VERSION_3, 0): 1.0,      # FW 0+: raw value in W
         }
     }
 
     FEATURE_MATRIX: dict[str, dict[tuple[str, str, int], bool]] = {
         "led_control": {
             ("VenusA", HW_VERSION_2, 0): True,     # FW 0+: LED control supported
-            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: LED control supported
+            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: LED control unsupported
             ("VenusD", HW_VERSION_2, 154): True,   # FW 154+: LED control supported
-            ("VenusC", HW_VERSION_2, 0): False,    # FW 0+: LED control supported
-            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: LED control supported
+            ("VenusC", HW_VERSION_2, 0): False,    # FW 0+: LED control unsupported
+            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: LED control unsupported
             ("VenusE", HW_VERSION_2, 154): True,   # FW 154+: LED control supported
-            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: LED control supported
+            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: LED control unsupported
             ("VenusE", HW_VERSION_3, 143): True,   # FW 143+: LED control supported
 
         },
 
         "ble_adv": {
             ("VenusA", HW_VERSION_2, 0): True,     # FW 0+: BLE block supported
-            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: BLE block supported
+            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: BLE block unsupported
             ("VenusD", HW_VERSION_2, 154): True,   # FW 154+: BLE block supported
-            ("VenusC", HW_VERSION_2, 0): False,    # FW 0-159: BLE block supported
+            ("VenusC", HW_VERSION_2, 0): False,    # FW 0-159: BLE block unsupported
             ("VenusC", HW_VERSION_2, 160): True,   # FW 160+: BLE block supported
-            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: BLE block supported
+            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: BLE block unsupported
             ("VenusE", HW_VERSION_2, 154): True,   # FW 154+: BLE block supported
-            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: BLE block supported
+            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: BLE block unsupported
             ("VenusE", HW_VERSION_3, 143): True,   # FW 143+: BLE block supported
         },
 
         "ups_mode": {
             ("VenusA", HW_VERSION_2, 0): True,     # FW 0+: UPS mode supported
-            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: UPS mode supported
+            ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: UPS mode unsupported
             ("VenusD", HW_VERSION_2, 154): True,   # FW 154+: UPS mode supported
-            ("VenusC", HW_VERSION_2, 0): False,    # FW 0-159: UPS mode supported
+            ("VenusC", HW_VERSION_2, 0): False,    # FW 0-159: UPS mode unsupported
             ("VenusC", HW_VERSION_2, 160): True,   # FW 160+: UPS mode supported
-            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: UPS mode supported
+            ("VenusE", HW_VERSION_2, 0): False,    # FW 0-153: UPS mode unsupported
             ("VenusE", HW_VERSION_2, 154): True,   # FW 154+: UPS mode supported
-            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: UPS mode supported
+            ("VenusE", HW_VERSION_3, 0): False,    # FW 0-142: UPS mode unsupported
             ("VenusE", HW_VERSION_3, 143): True,   # FW 143+: UPS mode supported
         },
     }
@@ -264,8 +264,11 @@ class CompatibilityMatrix:
 
         _LOGGER.debug(
             "Initialized compatibility matrix: model=%s, base=%s, hw=%s, fw=%d",
-            device_model, self.base_model, self.hardware_version, firmware_version
-        )
+                device_model,
+                self.base_model,
+                self.hardware_version,
+                firmware_version,
+            )
 
     def scale_value(self, value: float | None, field: str) -> float | None:
         """Scale a raw API value based on firmware and hardware version.
