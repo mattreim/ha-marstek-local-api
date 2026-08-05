@@ -12,21 +12,22 @@ from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 
 TO_REDACT: Final = (
+    "host",
+    "ip",
+    "device_ip",
     "wifi_name",
     "ssid",
     "ble_mac",
     "wifi_mac",
-    "device_ip",
-    "ip",
 )
-RECENT_FRAMES_LIMIT: Final = 8
+RECENT_FRAMES_LIMIT: Final[int] = 8
 
 
 def _command_compatibility_summary(command_stats: dict[str, Any]) -> dict[str, Any]:
     """Generate compatibility summary from command statistics."""
-    supported = []
-    unsupported = []
-    unknown = []
+    supported: list[str] = []
+    unsupported: list[str] = []
+    unknown: list[str] = []
 
     for method, stats in command_stats.items():
         support_status = stats.get("supported")
@@ -134,7 +135,6 @@ def _entity_states_snapshot(hass: HomeAssistant, entry_id: str) -> dict[str, Any
     result: dict[str, Any] = {}
 
     for entity_entry in sorted(entries, key=lambda e: e.entity_id):
-        state = hass.states.get(entity_entry.entity_id)
 
         entity_id = entity_entry.entity_id
         is_redacted = any(token in entity_id for token in TO_REDACT)
@@ -158,10 +158,9 @@ async def async_get_config_entry_diagnostics(
         return {"error": "integration_not_initialized"}
 
     coordinator = data.get(DATA_COORDINATOR)
+    entity_states = _entity_states_snapshot(hass, entry.entry_id)
 
     if isinstance(coordinator, MarstekMultiDeviceCoordinator):
-        entity_states = _entity_states_snapshot(hass, entry.entry_id)
-
         return {
             "entry": {
                 "title": entry.title,
@@ -172,8 +171,6 @@ async def async_get_config_entry_diagnostics(
         }
 
     if isinstance(coordinator, MarstekDataUpdateCoordinator):
-        entity_states = _entity_states_snapshot(hass, entry.entry_id)
-
         return {
             "entry": {
                 "title": entry.title,

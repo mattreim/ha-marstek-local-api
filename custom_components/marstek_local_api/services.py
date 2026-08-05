@@ -36,6 +36,7 @@ SERVICE_REQUEST_SYNC_SCHEMA = vol.Schema(
     }
 )
 
+
 # Schedule service schemas
 def _days_to_week_set(days: list[str]) -> int:
     """Convert list of day names to week_set bitmap."""
@@ -164,17 +165,21 @@ async def _refresh_after_write(
     device_coordinator: MarstekDataUpdateCoordinator,
     aggregate_coordinator: MarstekMultiDeviceCoordinator | None,
 ) -> None:
-    """Refresh device/aggregate coordinators after a state-changing operation."""
-    try:
-        await device_coordinator.async_request_refresh()
-    except Exception as err:  # noqa: BLE001
-        _LOGGER.warning("Failed to refresh device coordinator after write: %s", err)
+    """Refresh coordinators after a write."""
+
+    tasks = [device_coordinator.async_request_refresh()]
 
     if aggregate_coordinator:
-        try:
-            await aggregate_coordinator.async_request_refresh()
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.warning("Failed to refresh aggregate coordinator after write: %s", err)
+        tasks.append(aggregate_coordinator.async_request_refresh())
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for result in results:
+        if isinstance(result, Exception):
+            _LOGGER.warning(
+                "Failed to refresh coordinator after write: %s",
+                result,
+            )
 
 
 def _apply_local_mode_state(
@@ -182,7 +187,7 @@ def _apply_local_mode_state(
     aggregate_coordinator: MarstekMultiDeviceCoordinator | None,
     device_identifier: str | None,
     mode: str,
-    mode_payload: dict | None = None,
+    mode_payload: dict[str, object] | None = None,
 ) -> None:
     """Update cached coordinator data so operating mode sensors reflect changes immediately."""
     device_data = dict(device_coordinator.data or {})
@@ -565,7 +570,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         _LOGGER.debug("Unregistered service %s.%s", DOMAIN, SERVICE_SET_PASSIVE_MODE)
 
 
-async def _async_refresh_entry(entry_id: str, payload: dict) -> None:
+async def _async_refresh_entry(entry_id: str, payload: dict[str, object]) -> None:
     """Refresh a single config entry."""
     coordinator = payload.get(DATA_COORDINATOR)
     if coordinator is None:
@@ -574,14 +579,24 @@ async def _async_refresh_entry(entry_id: str, payload: dict) -> None:
 
     if isinstance(coordinator, MarstekMultiDeviceCoordinator):
         _LOGGER.debug("Requesting multi-device sync for entry %s", entry_id)
-        await coordinator.async_request_refresh()
+
+        tasks = [coordinator.async_request_refresh()]
+
         for mac, device_coordinator in coordinator.device_coordinators.items():
             if isinstance(device_coordinator, MarstekDataUpdateCoordinator):
-                await device_coordinator.async_request_refresh()
-                _LOGGER.debug("Requested device-level sync for %s (%s)", mac, entry_id)
+                tasks.append(device_coordinator.async_request_refresh())
+                _LOGGER.debug(
+                    "Queued device-level sync for %s (%s)",
+                    mac,
+                    entry_id,
+                )
+
+        await asyncio.gather(*tasks)
+
     elif isinstance(coordinator, MarstekDataUpdateCoordinator):
         _LOGGER.debug("Requesting single-device sync for entry %s", entry_id)
         await coordinator.async_request_refresh()
+
     else:
         _LOGGER.debug(
             "Coordinator type %s not recognised for entry %s",

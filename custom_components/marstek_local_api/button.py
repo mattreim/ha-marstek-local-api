@@ -1,6 +1,7 @@
 """Button platform for Marstek Local API."""
 from __future__ import annotations
 
+from typing import Any
 import asyncio
 import logging
 
@@ -37,9 +38,9 @@ DEFAULT_MANUAL_MODE_CFG: dict[str, int | str] = {
 }
 
 
-def _mode_state_from_config(mode: str, config: dict) -> dict:
+def _mode_state_from_config(mode: str, config: dict[str, Any]) -> dict[str, Any]:
     """Extract mode state information from a config payload."""
-    state: dict[str, object] = {"mode": mode}
+    state: dict[str, Any] = {"mode": mode}
 
     if mode == MODE_AUTO and "auto_cfg" in config:
         state["auto_cfg"] = dict(config["auto_cfg"])
@@ -61,7 +62,7 @@ async def async_setup_entry(
     """Set up Marstek buttons based on a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
 
-    compatibility = CompatibilityMatrix(
+    device_compatibility = CompatibilityMatrix(
         entry.data.get("device", ""),
         entry.data.get("firmware", 0),
     )
@@ -101,10 +102,9 @@ async def async_setup_entry(
                     device_mac=mac,
                     device_data=device_data,
                 ),
-
             ])
 
-            if compatibility.is_feature_supported("ups_mode"):
+            if device_compatibility.is_feature_supported("ups_mode"):
                 entities.append(
                     MarstekMultiDeviceUPSModeButton(
                         coordinator=coordinator,
@@ -112,12 +112,12 @@ async def async_setup_entry(
                         device_mac=mac,
                         device_data=device_data,
                     ),
-            )
+                )
             else:
                 _LOGGER.debug(
                     "UPS mode not supported for %s FW %d",
-                    compatibility.base_model,
-                    compatibility.firmware_version,
+                    device_compatibility.base_model,
+                    device_compatibility.firmware_version,
                 )
     else:
         # Single device mode
@@ -127,15 +127,15 @@ async def async_setup_entry(
             MarstekManualModeButton(coordinator, entry),
         ])
 
-        if compatibility.is_feature_supported("ups_mode"):
+        if device_compatibility.is_feature_supported("ups_mode"):
             entities.append(
                 MarstekUPSModeButton(coordinator, entry)
-        )
+            )
         else:
             _LOGGER.debug(
                 "UPS mode not supported for %s FW %d",
-                compatibility.base_model,
-                compatibility.firmware_version,
+                device_compatibility.base_model,
+                device_compatibility.firmware_version,
             )
 
     async_add_entities(entities)
@@ -162,7 +162,7 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
         self._attr_icon = icon
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_mac)},
-            name=f"Marstek {entry.data['device']}",
+            name=f"Marstek {entry.data.get('device', 'Device')}",
             manufacturer="Marstek",
             model=entry.data.get("device"),
             sw_version=str(entry.data.get("firmware", "Unknown")),
@@ -200,7 +200,7 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
 
                 except Exception as err:
                     last_error = str(err)
-                    _LOGGER.error(
+                    _LOGGER.exception(
                         "Error setting mode to %s (attempt %d/%d): %s",
                         self._mode,
                         attempt,
@@ -234,7 +234,7 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
         except Exception as err:
             _LOGGER.warning("Failed to refresh data after mode change: %s", err)
 
-    def _build_mode_config(self) -> dict:
+    def _build_mode_config(self) -> dict[str, Any]:
         """Build configuration for the selected mode."""
         if self._mode == MODE_AUTO:
             return {
@@ -259,7 +259,7 @@ class MarstekModeButton(CoordinatorEntity, ButtonEntity):
 
         return {}
 
-    def _update_cached_mode(self, config: dict) -> None:
+    def _update_cached_mode(self, config: dict[str, Any]) -> None:
         """Update coordinator cache so sensors reflect the new mode immediately."""
         current = self.coordinator.data or {}
         updated = dict(current)
@@ -324,7 +324,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
         coordinator: MarstekMultiDeviceCoordinator,
         device_coordinator: MarstekDataUpdateCoordinator,
         device_mac: str,
-        device_data: dict,
+        device_data: dict[str, Any],
         mode: str,
         name: str,
         icon: str,
@@ -388,7 +388,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
 
                 except Exception as err:
                     last_error = str(err)
-                    _LOGGER.error(
+                    _LOGGER.exception(
                         "Error setting mode to %s for device %s (attempt %d/%d): %s",
                         self._mode,
                         self.device_mac,
@@ -439,7 +439,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
                 err,
             )
 
-    def _build_mode_config(self) -> dict:
+    def _build_mode_config(self) -> dict[str, Any]:
         """Build configuration for the selected mode."""
         if self._mode == MODE_AUTO:
             return {
@@ -464,7 +464,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
 
         return {}
 
-    def _update_device_cache(self, state: dict) -> dict:
+    def _update_device_cache(self, state: dict) -> dict[str, Any]:
         """Update the per-device coordinator cache and return the new payload."""
         current_device = self.device_coordinator.data or {}
         updated_device = dict(current_device)
@@ -472,7 +472,7 @@ class MarstekMultiDeviceModeButton(CoordinatorEntity, ButtonEntity):
         self.device_coordinator.async_set_updated_data(updated_device)
         return updated_device
 
-    def _update_cached_mode(self, config: dict) -> None:
+    def _update_cached_mode(self, config: dict[str, Any]) -> None:
         """Update device and aggregate caches so sensors reflect the new mode immediately."""
         state = _mode_state_from_config(self._mode, config)
         updated_device = self._update_device_cache(state)
@@ -494,7 +494,7 @@ class MarstekMultiDeviceAutoModeButton(MarstekMultiDeviceModeButton):
         coordinator: MarstekMultiDeviceCoordinator,
         device_coordinator: MarstekDataUpdateCoordinator,
         device_mac: str,
-        device_data: dict,
+        device_data: dict[str, Any],
     ) -> None:
         """Initialize the Auto mode button."""
         super().__init__(
@@ -510,7 +510,7 @@ class MarstekMultiDeviceAIModeButton(MarstekMultiDeviceModeButton):
         coordinator: MarstekMultiDeviceCoordinator,
         device_coordinator: MarstekDataUpdateCoordinator,
         device_mac: str,
-        device_data: dict,
+        device_data: dict[str, Any],
     ) -> None:
         """Initialize the AI mode button."""
         super().__init__(
@@ -526,7 +526,7 @@ class MarstekMultiDeviceManualModeButton(MarstekMultiDeviceModeButton):
         coordinator: MarstekMultiDeviceCoordinator,
         device_coordinator: MarstekDataUpdateCoordinator,
         device_mac: str,
-        device_data: dict,
+        device_data: dict[str, Any],
     ) -> None:
         """Initialize the Manual mode button."""
         super().__init__(
@@ -542,7 +542,7 @@ class MarstekMultiDeviceUPSModeButton(MarstekMultiDeviceModeButton):
         coordinator: MarstekMultiDeviceCoordinator,
         device_coordinator: MarstekDataUpdateCoordinator,
         device_mac: str,
-        device_data: dict,
+        device_data: dict[str, Any],
     ) -> None:
         """Initialize the UPS mode button."""
         super().__init__(

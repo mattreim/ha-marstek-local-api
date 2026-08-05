@@ -99,7 +99,7 @@ class CompatibilityMatrix:
     # Lookup finds the highest firmware version <= actual device firmware.
     # ============================================================================
 
-    SCALING_MATRIX: dict[str, dict[tuple[str, str, int], float]] = {
+    SCALING_MATRIX: Final[dict[str, dict[tuple[str, str, int], float]]] = {
         # Battery temperature (°C)
         "bat_temp": {
             ("VenusA", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in °C
@@ -178,7 +178,7 @@ class CompatibilityMatrix:
 
         # Battery available capacity (Wh)
         "battery_available_capacity": {
-            ("VenusA", HW_VERSION_2, 0): 1000.0,   # FW 0+: raw value in Wh
+            ("VenusA", HW_VERSION_2, 0): 1000.0,   # FW 0+: raw value in mWh (÷1000)
             ("VenusD", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
             ("VenusC", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
             ("VenusE", HW_VERSION_2, 0): 1.0,      # FW 0+: raw value in Wh
@@ -212,7 +212,7 @@ class CompatibilityMatrix:
         }
     }
 
-    FEATURE_MATRIX: dict[str, dict[tuple[str, str, int], bool]] = {
+    FEATURE_MATRIX: Final[dict[str, dict[tuple[str, str, int], bool]]] = {
         "led_control": {
             ("VenusA", HW_VERSION_2, 0): True,     # FW 0+: LED control supported
             ("VenusD", HW_VERSION_2, 0): False,    # FW 0-153: LED control unsupported
@@ -264,11 +264,11 @@ class CompatibilityMatrix:
 
         _LOGGER.debug(
             "Initialized compatibility matrix: model=%s, base=%s, hw=%s, fw=%d",
-                device_model,
-                self.base_model,
-                self.hardware_version,
-                firmware_version,
-            )
+            device_model,
+            self.base_model,
+            self.hardware_version,
+            firmware_version,
+        )
 
     def scale_value(self, value: float | None, field: str) -> float | None:
         """Scale a raw API value based on firmware and hardware version.

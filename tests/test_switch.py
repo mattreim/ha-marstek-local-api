@@ -159,6 +159,20 @@ class TestAsyncSetupEntry:
         add_entities.assert_called_once()
         assert add_entities.call_args[0][0] == []
 
+    @pytest.mark.asyncio
+    async def test_setup_entry_missing_coordinator(self):
+        hass = MagicMock()
+        entry = _make_entry()
+
+        hass.data = {}
+
+        with pytest.raises(KeyError):
+            await async_setup_entry(
+                hass,
+                entry,
+                MagicMock(),
+            )
+
 
 # ---------------------------------------------------------------------------
 # Base Switch
@@ -214,6 +228,19 @@ class TestMarstekBaseSwitch:
         assert sw._state is True
 
     @pytest.mark.asyncio
+    async def test_restore_state_invalid(self):
+        coord = _make_coord()
+        sw = MarstekBaseSwitch(coord, _make_entry())
+
+        state = MagicMock()
+        state.state = "unknown"
+
+        with patch.object(sw, "async_get_last_state", return_value=state):
+            await sw.async_added_to_hass()
+
+        assert sw.is_on is False
+
+    @pytest.mark.asyncio
     async def test_restore_state_off(self):
         coord = _make_coord()
         sw = MarstekBaseSwitch(coord, _make_entry())
@@ -243,6 +270,12 @@ class TestMarstekBaseSwitch:
         sw._safe_write_state()
 
         sw.async_write_ha_state.assert_called_once()
+
+    def test_safe_write_state_without_entity_id(self):
+        sw = MarstekBaseSwitch(_make_coord(), _make_entry())
+        sw.entity_id = None
+
+        sw._safe_write_state()
 
 
 # ---------------------------------------------------------------------------
@@ -274,6 +307,21 @@ class TestMarstekLedCtrlSwitch:
 
         write.assert_not_called()
         assert sw._state is True
+
+    @pytest.mark.asyncio
+    async def test_led_turn_on_exception_logs(self, caplog):
+        coord = _make_coord()
+        coord.api.set_led.side_effect = MarstekAPIError("failed")
+
+        sw = MarstekLedCtrlSwitch(
+            coord,
+            _make_entry(),
+        )
+
+        await sw.async_turn_on()
+
+        assert "LED control not supported" in caplog.text
+        assert sw.is_on is True
 
     @pytest.mark.asyncio
     async def test_led_turn_off_success(self):
@@ -321,6 +369,14 @@ class TestMarstekLedCtrlSwitch:
         await sw.async_turn_on()
 
         assert sw._state is True  # unchanged default
+
+    def test_led_name(self):
+        sw = MarstekLedCtrlSwitch(
+            _make_coord(),
+            _make_entry(),
+        )
+
+        assert sw._attr_name == "Status LED"
 
 
 # ---------------------------------------------------------------------------
@@ -397,3 +453,11 @@ class TestMarstekBleAdvSwitch:
         await sw.async_turn_on()
 
         assert sw._state is True
+
+    def test_ble_name(self):
+        sw = MarstekBleAdvSwitch(
+            _make_coord(),
+            _make_entry(),
+        )
+
+        assert sw._attr_name == "Bluetooth lock"

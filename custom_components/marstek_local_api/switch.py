@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -13,10 +13,11 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .api import MarstekAPIError
 from .compatibility import CompatibilityMatrix
-
-from .const import DOMAIN
+from .const import DATA_COORDINATOR, DOMAIN
+from .coordinator import MarstekDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -24,31 +25,31 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up switches."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
 
-    compatibility = CompatibilityMatrix(
+    device_compatibility = CompatibilityMatrix(
         entry.data.get("device", ""),
         entry.data.get("firmware", 0),
     )
 
     entities = []
 
-    if compatibility.is_feature_supported("led_control"):
+    if device_compatibility.is_feature_supported("led_control"):
         entities.append(MarstekLedCtrlSwitch(coordinator, entry))
     else:
         _LOGGER.debug(
             "LED control not supported for %s FW %d",
-            compatibility.base_model,
-            compatibility.firmware_version,
+            device_compatibility.base_model,
+            device_compatibility.firmware_version,
         )
 
-    if compatibility.is_feature_supported("ble_adv"):
+    if device_compatibility.is_feature_supported("ble_adv"):
         entities.append(MarstekBleAdvSwitch(coordinator, entry))
     else:
         _LOGGER.debug(
             "Bluetooth lock not supported for %s FW %d",
-            compatibility.base_model,
-            compatibility.firmware_version,
+            device_compatibility.base_model,
+            device_compatibility.firmware_version,
         )
 
     async_add_entities(entities)
@@ -60,14 +61,18 @@ class MarstekBaseSwitch(CoordinatorEntity, RestoreEntity, SwitchEntity):
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    default_state: bool = True
+    default_state = True
 
     def _safe_write_state(self) -> None:
-        if not hasattr(self, "entity_id") or self.entity_id is None:
+        if self.entity_id is None:
             return
         self.async_write_ha_state()
 
-    def __init__(self, coordinator, entry):
+    def __init__(
+        self,
+        coordinator: MarstekDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
         super().__init__(coordinator)
 
         device_id = entry.data.get("ble_mac") or entry.data.get("wifi_mac")
@@ -84,11 +89,13 @@ class MarstekBaseSwitch(CoordinatorEntity, RestoreEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool:
+        """Return if the switch is on."""
         return self._state
 
     @property
     def available(self) -> bool:
-        return self.coordinator.last_update_success
+        """Return if the entity is available."""
+        return bool(self.coordinator.last_update_success)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -101,7 +108,11 @@ class MarstekBaseSwitch(CoordinatorEntity, RestoreEntity, SwitchEntity):
 class MarstekLedCtrlSwitch(MarstekBaseSwitch):
     """LED control switch."""
 
-    def __init__(self, coordinator, entry):
+    def __init__(
+        self,
+        coordinator: MarstekDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
         super().__init__(coordinator, entry)
 
         device_id = entry.data.get("ble_mac") or entry.data.get("wifi_mac")
@@ -134,7 +145,11 @@ class MarstekLedCtrlSwitch(MarstekBaseSwitch):
 class MarstekBleAdvSwitch(MarstekBaseSwitch):
     """Bluetooth lock switch."""
 
-    def __init__(self, coordinator, entry):
+    def __init__(
+        self,
+        coordinator: MarstekDataUpdateCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
         super().__init__(coordinator, entry)
 
         device_id = entry.data.get("ble_mac") or entry.data.get("wifi_mac")

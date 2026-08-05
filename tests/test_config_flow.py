@@ -1,7 +1,6 @@
 """Tests for config_flow.py — 100% coverage."""
 from __future__ import annotations
 
-import asyncio
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,6 +9,11 @@ import pytest
 from tests.conftest import _DhcpServiceInfo, _load_integration_module
 
 from homeassistant.exceptions import HomeAssistantError
+
+from custom_components.marstek_local_api.coordinator import (
+    MarstekDataUpdateCoordinator,
+    MarstekMultiDeviceCoordinator,
+)
 
 # Ensure config_flow is loaded fresh with our stubs (not with real HA modules
 # that pytest-homeassistant-custom-component may have pre-loaded).
@@ -24,7 +28,6 @@ OptionsFlow = _cf.OptionsFlow
 CannotConnect = _cf.CannotConnect
 validate_input = _cf.validate_input
 DOMAIN = _cf.DOMAIN
-DEFAULT_PORT = _cf.DEFAULT_PORT
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +44,7 @@ def _make_config_flow():
     flow.async_set_unique_id = AsyncMock()
     flow._abort_if_unique_id_configured = MagicMock()
     flow.async_show_form = MagicMock(side_effect=lambda **kw: {"type": "form", **kw})
-    flow.async_create_entry = MagicMock(side_effect=lambda **kw: {"type": "create_entry", **kw})
+    flow.async_create_entry = MagicMock(side_effect=lambda **kwargs: {"type": "create_entry", **kwargs})
     flow.async_abort = MagicMock(side_effect=lambda **kw: {"type": "abort", **kw})
     return flow
 
@@ -50,7 +53,7 @@ def _make_options_flow(devices=None, options=None, entry_data=None):
     """Return an OptionsFlow instance with all parent methods mocked."""
 
     entry = MagicMock()
-    entry.options = options or {}
+    entry.options = options if options is not None else {}
 
     if entry_data is not None:
         entry.data = entry_data
@@ -60,17 +63,12 @@ def _make_options_flow(devices=None, options=None, entry_data=None):
         entry.data = {}
 
     flow = OptionsFlow(entry)
-
     flow.hass = MagicMock()
-    flow.hass.data = {}
-    flow.hass.config_entries = MagicMock()
-
+    flow.hass = MagicMock(data={}, config_entries=MagicMock())
     flow._config_entry = entry
-
     flow.async_show_form = MagicMock(side_effect=lambda **kw: {"type": "form", **kw})
-    flow.async_create_entry = MagicMock(side_effect=lambda **kw: {"type": "create_entry", **kw})
+    flow.async_create_entry = MagicMock(side_effect=lambda **kwargs: {"type": "create_entry", **kwargs})
     flow.async_abort = MagicMock(side_effect=lambda **kw: {"type": "abort", **kw})
-
     return flow
 
 def _mock_api(discover_result=None):
@@ -80,12 +78,6 @@ def _mock_api(discover_result=None):
 
     cls = MagicMock(return_value=api)
     return cls, api
-
-
-@pytest.fixture(autouse=True)
-def patch_sleep():
-    with patch("asyncio.sleep", new=AsyncMock()):
-        yield
 
 
 _SAMPLE_DEVICE = {
@@ -198,13 +190,15 @@ class TestConfigFlowInit:
         flow = _make_config_flow()
         assert flow._discovered_devices == []
 
-    async def test_async_step_user_calls_discovery(self):
-        flow = _make_config_flow()
-        mock_cls, mock_api = _mock_api(discover_result=[_SAMPLE_DEVICE])
-        with patch.object(_cf, "MarstekUDPClient", mock_cls):
-            result = await flow.async_step_user()
+    @pytest.mark.asyncio
+    async def test_async_step_user_starts_discovery(self):
+        flow = ConfigFlow()
+        flow.async_step_discovery = AsyncMock(return_value={"type": "form"})
 
-        assert result["type"] == "form"
+        result = await flow.async_step_user()
+
+        flow.async_step_discovery.assert_called_once_with(None)
+        assert result == {"type": "form"}
 
     def test_async_get_options_flow(self):
         flow = _make_config_flow()
@@ -241,7 +235,7 @@ class TestConfigFlowDiscoveryNoInput:
         with patch.object(_cf, "MarstekUDPClient", mock_cls):
             result = await flow.async_step_discovery(user_input=None)
 
-        # manual step shows a form too
+        # Discovery falls back to the manual configuration step.
         assert result["type"] == "form"
         assert result["step_id"] == "manual"
 
@@ -266,6 +260,29 @@ class TestConfigFlowDiscoveryNoInput:
 
         assert result["type"] == "form"
 
+    async def test_validate_input_disconnect_error(self, hass, monkeypatch):
+        api = MagicMock()
+        api.connect = AsyncMock()
+        api.get_device_info = AsyncMock(
+            return_value={
+                "device": "Venus",
+                "ble_mac": "AA:BB",
+            }
+        )
+        api.disconnect = AsyncMock(side_effect=RuntimeError("disconnect failed"))
+
+        monkeypatch.setattr(
+            "custom_components.marstek_local_api.config_flow.MarstekUDPClient",
+            lambda *args, **kwargs: api,
+        )
+
+        result = await validate_input(
+            hass,
+            {"host": "192.168.1.10"},
+        )
+
+        assert result["device"] == "Venus"
+
     async def test_existing_entry_single_device_coordinator_paused(self):
         """Cover single-device coordinator pause/resume path."""
         flow = _make_config_flow()
@@ -275,7 +292,7 @@ class TestConfigFlowDiscoveryNoInput:
         entry.title = "Test Device"
         flow._async_current_entries = MagicMock(return_value=[entry])
 
-        mock_coordinator = MagicMock(spec=["api"])
+        mock_coordinator = MagicMock(spec=MarstekDataUpdateCoordinator)
         mock_coordinator.api = AsyncMock()
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: mock_coordinator}}}
 
@@ -297,7 +314,7 @@ class TestConfigFlowDiscoveryNoInput:
         flow._async_current_entries = MagicMock(return_value=[entry])
 
         sub_api = AsyncMock()
-        mock_coordinator = MagicMock(spec=["device_coordinators"])
+        mock_coordinator = MagicMock(spec=MarstekMultiDeviceCoordinator)
         mock_coordinator.device_coordinators = {"dev1": MagicMock(api=sub_api)}
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: mock_coordinator}}}
 
@@ -332,7 +349,7 @@ class TestConfigFlowDiscoveryNoInput:
         entry.entry_id = "entry1"
         flow._async_current_entries = MagicMock(return_value=[entry])
 
-        mock_coordinator = MagicMock(spec=["api"])
+        mock_coordinator = MagicMock(spec=MarstekDataUpdateCoordinator)
         mock_coordinator.api = AsyncMock()
         mock_coordinator.api.connect.side_effect = OSError("reconnect failed")
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: mock_coordinator}}}
@@ -366,10 +383,8 @@ class TestConfigFlowDiscoveryNoInput:
         entry.entry_id = "entry1"
         flow._async_current_entries = MagicMock(return_value=[entry])
 
-        coordinator = MagicMock(spec=["device_coordinators"])
-        coordinator.device_coordinators = {
-            "dev1": MagicMock(api=None),
-        }
+        coordinator = MagicMock(spec=MarstekMultiDeviceCoordinator)
+        coordinator.device_coordinators = {"dev1": MagicMock(api=None)}
 
         flow.hass.data = {
             DOMAIN: {
@@ -447,7 +462,7 @@ class TestConfigFlowDiscoveryWithInput:
         entry.entry_id = "entry1"
         flow._async_current_entries = MagicMock(return_value=[entry])
 
-        coordinator = MagicMock(spec=["api"])
+        coordinator = MagicMock(spec=MarstekDataUpdateCoordinator)
         coordinator.api = None
 
         flow.hass.data = {
@@ -1112,7 +1127,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
         sub_api = AsyncMock()
-        coordinator = MagicMock(spec=["device_coordinators"])
+        coordinator = MagicMock(spec=MarstekMultiDeviceCoordinator)
         coordinator.device_coordinators = {"dev1": MagicMock(api=sub_api)}
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: coordinator}}}
         mock_cls, _ = _mock_api(discover_result=[])
@@ -1125,7 +1140,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
     async def test_single_device_coordinator_paused(self):
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
-        coordinator = MagicMock(spec=["api"])
+        coordinator = MagicMock(spec=MarstekDataUpdateCoordinator)
         coordinator.api = AsyncMock()
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: coordinator}}}
         mock_cls, _ = _mock_api(discover_result=[])
@@ -1171,7 +1186,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         """client.connect() raises during resume → warning logged."""
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
-        coordinator = MagicMock(spec=["api"])
+        coordinator = MagicMock(spec=MarstekDataUpdateCoordinator)
         coordinator.api = AsyncMock()
         coordinator.api.connect.side_effect = OSError("reconnect failed")
         flow.hass.data = {DOMAIN: {"entry1": {_cf.DATA_COORDINATOR: coordinator}}}
@@ -1183,10 +1198,8 @@ class TestOptionsFlowAsyncDiscoverDevices:
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
 
-        coordinator = MagicMock(spec=["device_coordinators"])
-        coordinator.device_coordinators = {
-            "dev1": MagicMock(api=None),
-        }
+        coordinator = MagicMock(spec=MarstekMultiDeviceCoordinator)
+        coordinator.device_coordinators = {"dev1": MagicMock(api=None)}
 
         flow.hass.data = {
             DOMAIN: {
@@ -1207,7 +1220,7 @@ class TestOptionsFlowAsyncDiscoverDevices:
         flow = _make_options_flow(devices=[_SAMPLE_DEVICE])
         flow._devices = [_SAMPLE_DEVICE]
 
-        coordinator = MagicMock(spec=["api"])
+        coordinator = MagicMock(spec=MarstekDataUpdateCoordinator)
         coordinator.api = None
 
         flow.hass.data = {

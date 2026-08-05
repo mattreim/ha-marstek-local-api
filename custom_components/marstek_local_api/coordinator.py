@@ -458,7 +458,9 @@ class MarstekDataUpdateCoordinator(DataUpdateCoordinator):
 
         # Check if we ever received data for this category
         if category not in self.category_last_updated:
-            return False
+            # Allow initial startup state.
+            # Sensors will update when the first category data arrives.
+            return self.data is not None and category in self.data
 
         # Calculate time since last update
         last_update = self.category_last_updated[category]

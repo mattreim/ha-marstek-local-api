@@ -5,6 +5,7 @@ output for real device data, after the coordinator has applied scaling.
 """
 import pytest
 
+from custom_components.marstek_local_api.sensor import _round_value
 
 # ---------------------------------------------------------------------------
 # Battery sensors
@@ -12,6 +13,20 @@ import pytest
 
 class TestBatterySensors:
     """Sensors sourced from Bat.GetStatus (after scaling)."""
+
+    def test_round_value_none(self):
+        """None input returns None."""
+        assert _round_value(None) is None
+
+
+    def test_round_value_rounds_float(self):
+        """Values are rounded to two decimals."""
+        assert _round_value(12.3456) == 12.35
+
+
+    def test_round_value_keeps_two_decimals(self):
+        """Already rounded values stay unchanged."""
+        assert _round_value(12.34) == 12.34
 
     def test_soc(self, sensor_map, venus_a_coordinator_data):
         val = sensor_map["battery_soc"].value_fn(venus_a_coordinator_data)

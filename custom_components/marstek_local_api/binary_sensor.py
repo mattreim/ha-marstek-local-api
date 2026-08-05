@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -24,15 +24,13 @@ from .const import (
 )
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 
-_LOGGER = logging.getLogger(__name__)
-
 
 @dataclass
 class MarstekBinarySensorEntityDescription(BinarySensorEntityDescription):
     """Describes Marstek binary sensor entity."""
 
-    value_fn: Callable[[dict], bool] | None = None
-    available_fn: Callable[[dict], bool] | None = None
+    value_fn: Callable[[dict[str, Any]], bool] | None = None
+    available_fn: Callable[[dict[str, Any]], bool] | None = None
     category: str | None = None
 
 
@@ -40,13 +38,13 @@ BINARY_SENSOR_TYPES: tuple[MarstekBinarySensorEntityDescription, ...] = (
     # Battery charging/discharging flags
     MarstekBinarySensorEntityDescription(
         key="charging_enabled",
-        name="Charging enabled",
+        name="Charging",
         value_fn=lambda data: data.get("battery", {}).get("charg_flag", False),
         category="battery",
     ),
     MarstekBinarySensorEntityDescription(
         key="discharging_enabled",
-        name="Discharging enabled",
+        name="Discharging",
         value_fn=lambda data: data.get("battery", {}).get("dischrg_flag", False),
         category="battery",
     ),
@@ -136,7 +134,7 @@ class MarstekBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self._attr_unique_id = f"{device_mac}_{entity_description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_mac)},
-            name=f"Marstek {entry.data['device']}",
+            name=f"Marstek {entry.data.get('device', 'Device')}",
             manufacturer="Marstek",
             model=entry.data.get("device"),
             sw_version=str(entry.data.get("firmware", "Unknown")),
@@ -149,7 +147,7 @@ class MarstekBinarySensor(CoordinatorEntity, BinarySensorEntity):
             if not self.coordinator.is_category_fresh(self.entity_description.category):
                 return None
         if self.entity_description.value_fn:
-            return self.entity_description.value_fn(self.coordinator.data)
+            return self.entity_description.value_fn(self.coordinator.data or {})
         return None
 
     @property
@@ -172,7 +170,7 @@ class MarstekMultiDeviceBinarySensor(CoordinatorEntity, BinarySensorEntity):
         device_coordinator: MarstekDataUpdateCoordinator,
         entity_description: MarstekBinarySensorEntityDescription,
         device_mac: str,
-        device_data: dict,
+        device_data: dict[str, Any],
     ) -> None:
         """Initialize the binary sensor."""
         super().__init__(coordinator)
@@ -201,7 +199,7 @@ class MarstekMultiDeviceBinarySensor(CoordinatorEntity, BinarySensorEntity):
                 return None
         if self.entity_description.value_fn:
             device_data = self.coordinator.get_device_data(self.device_mac)
-            return self.entity_description.value_fn(device_data)
+            return self.entity_description.value_fn(device_data or {})
         return None
 
     @property

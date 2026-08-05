@@ -40,7 +40,7 @@ class TestConnectException:
     async def test_connect_propagates_create_endpoint_failure(self):
         """create_datagram_endpoint failure → exception is re-raised."""
         client = _make_client(port=39101)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with patch.object(loop, "create_datagram_endpoint", side_effect=OSError("bind failed")):
             with pytest.raises(OSError, match="bind failed"):
                 await client.connect()
@@ -393,7 +393,7 @@ class TestDiscoverDevices:
 
         with patch.object(client, "_get_broadcast_addresses", return_value=["192.168.1.255"]):
             with patch.object(_api_mod.asyncio, "sleep", side_effect=fake_sleep):
-                with patch.object(_api_mod.asyncio, "get_event_loop", return_value=mock_loop):
+                with patch.object(_api_mod.asyncio, "get_running_loop", return_value=mock_loop):
                     result = await client.discover_devices(timeout=1)
 
         assert len(result) == 1
@@ -412,7 +412,7 @@ class TestDiscoverDevices:
 
         with patch.object(client, "_get_broadcast_addresses", return_value=["255.255.255.255"]):
             with patch.object(_api_mod.asyncio, "sleep", new_callable=AsyncMock):
-                with patch.object(_api_mod.asyncio, "get_event_loop", return_value=mock_loop):
+                with patch.object(_api_mod.asyncio, "get_running_loop", return_value=mock_loop):
                     result = await client.discover_devices(timeout=0)
 
         assert result == []

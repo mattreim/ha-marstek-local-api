@@ -32,6 +32,10 @@ from .const import (
     UPDATE_INTERVAL_MEDIUM_SECS,
     UPDATE_INTERVAL_SLOW_SECS,
 )
+from .coordinator import (
+    MarstekDataUpdateCoordinator,
+    MarstekMultiDeviceCoordinator,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,7 +81,10 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         _LOGGER.error("Error connecting to Marstek device: %s", err)
         raise CannotConnect from err
     finally:
-        await api.disconnect()
+        try:
+            await api.disconnect()
+        except (OSError, RuntimeError) as err:
+            _LOGGER.debug("Failed to disconnect temporary API client: %s", err)
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Marstek Local API."""
@@ -86,20 +93,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self._discovered_devices: list[dict] = []
+        self._discovered_devices: list[dict[str, Any]] = []
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial step."""
         # Start discovery
-        return await self.async_step_discovery()
+        return await self.async_step_discovery(user_input)
 
     async def async_step_discovery(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle discovery of devices."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is None:
             # Perform discovery
@@ -110,18 +117,19 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     coordinator = self.hass.data[DOMAIN][entry.entry_id].get(DATA_COORDINATOR)
                     if coordinator:
                         # Handle both single-device and multi-device coordinators
-                        if hasattr(coordinator, 'device_coordinators'):
+                        if isinstance(coordinator, MarstekMultiDeviceCoordinator):
                             # Multi-device coordinator
                             _LOGGER.debug("Pausing multi-device coordinator %s during discovery", entry.title)
                             for device_coordinator in coordinator.device_coordinators.values():
                                 if device_coordinator.api:
                                     await device_coordinator.api.disconnect()
                                     paused_clients.append(device_coordinator.api)
-                        elif hasattr(coordinator, 'api') and coordinator.api:
+                        elif isinstance(coordinator, MarstekDataUpdateCoordinator):
                             # Single-device coordinator
                             _LOGGER.debug("Pausing API client for %s during discovery", entry.title)
-                            await coordinator.api.disconnect()
-                            paused_clients.append(coordinator.api)
+                            if coordinator.api:
+                                await coordinator.api.disconnect()
+                                paused_clients.append(coordinator.api)
 
             # Wait a bit for disconnections to complete and sockets to close
             await asyncio.sleep(1)
@@ -150,7 +158,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     try:
                         _LOGGER.debug("Resuming paused API client for host %s", client.host)
                         await client.connect()
-                    except Exception as err:
+                    except (MarstekAPIError, OSError, RuntimeError) as err:
                         _LOGGER.warning("Failed to resume client for host %s: %s", client.host, err)
 
             if not self._discovered_devices:
@@ -158,7 +166,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_manual()
 
             # Build list of discovered devices
-            devices_list = {}
+            devices_list: dict[str, str] = {}
 
             # Add "All devices" option if multiple devices found
             if len(self._discovered_devices) > 1:
@@ -236,7 +244,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_show_form(step_id="discovery", errors=errors)
 
         # Check if already configured
-        unique_id = device.get("ble_mac")
+        unique_id = unique_id = device.get("ble_mac")
         if not unique_id:
             _LOGGER.debug("Device %s missing BLE MAC; continuing without duplicate guard", device.get("ip"))
         else:
@@ -260,7 +268,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle manual IP entry."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             try:
@@ -291,8 +299,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             except CannotConnect:
                 errors["base"] = "cannot_connect"
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+            except Exception as err:
+                _LOGGER.exception("Unexpected exception during manual setup: %s", err)
                 errors["base"] = "unknown"
 
         return self.async_show_form(
@@ -338,7 +346,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         except CannotConnect:
             return self.async_abort(reason="cannot_connect")
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             _LOGGER.exception("Unexpected exception during DHCP discovery")
             return self.async_abort(reason="unknown")
 
@@ -717,7 +725,7 @@ class OptionsFlow(config_entries.OptionsFlow):
 
             except CannotConnect:
                 errors["base"] = "cannot_connect"
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.exception("Unexpected exception during manual device addition")
                 errors["base"] = "unknown"
 
@@ -745,14 +753,15 @@ class OptionsFlow(config_entries.OptionsFlow):
                 if not coordinator:
                     continue
 
-                if hasattr(coordinator, "device_coordinators"):
+                if isinstance(coordinator, MarstekMultiDeviceCoordinator):
                     for device_coordinator in coordinator.device_coordinators.values():
                         if device_coordinator.api:
                             await device_coordinator.api.disconnect()
                             paused_clients.append(device_coordinator.api)
-                elif hasattr(coordinator, "api") and coordinator.api:
-                    await coordinator.api.disconnect()
-                    paused_clients.append(coordinator.api)
+                elif isinstance(coordinator, MarstekDataUpdateCoordinator):
+                    if coordinator.api:
+                        await coordinator.api.disconnect()
+                        paused_clients.append(coordinator.api)
 
         await asyncio.sleep(1)
 
@@ -760,12 +769,12 @@ class OptionsFlow(config_entries.OptionsFlow):
         try:
             await api.connect()
             self._discovered_devices = await api.discover_devices()
-        except Exception as err:  # pylint: disable=broad-except
+        except Exception as err:
             _LOGGER.error("Discovery failed during options flow: %s", err, exc_info=True)
         finally:
             try:
                 await api.disconnect()
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 pass
 
         await asyncio.sleep(1)
@@ -773,7 +782,7 @@ class OptionsFlow(config_entries.OptionsFlow):
         for client in paused_clients:
             try:
                 await client.connect()
-            except Exception as err:  # pylint: disable=broad-except
+            except (MarstekAPIError, OSError, RuntimeError) as err:
                 _LOGGER.warning("Failed to resume client during options flow: %s", err)
 
 

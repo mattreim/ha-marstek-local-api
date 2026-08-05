@@ -427,7 +427,7 @@ class TestConnectDisconnect:
         async def fake_endpoint(factory, **kwargs):
             return mock_transport, mock_protocol
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with patch.object(loop, "create_datagram_endpoint", side_effect=fake_endpoint):
             await client.connect()
 
@@ -449,7 +449,7 @@ class TestConnectDisconnect:
             call_count += 1
             return mock_transport, mock_protocol
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         with patch.object(loop, "create_datagram_endpoint", side_effect=fake_endpoint):
             await client1.connect()
             await client2.connect()

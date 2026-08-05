@@ -4,7 +4,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-import logging
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -23,6 +22,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -30,20 +30,19 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DATA_COORDINATOR, DEVICE_MODEL_VENUS_A, DEVICE_MODEL_VENUS_D, DOD_DEFAULT, DOMAIN
 from .coordinator import MarstekDataUpdateCoordinator, MarstekMultiDeviceCoordinator
 
-_LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True, kw_only=True)
 class MarstekSensorEntityDescription(SensorEntityDescription):
     """Describes Marstek sensor entity."""
 
-    value_fn: Callable[[dict], Any] | None = None
-    available_fn: Callable[[dict], bool] | None = None
+    value_fn: Callable[[dict[str, Any]], StateType] | None = None
+    available_fn: Callable[[dict[str, Any]], bool] | None = None
     category: str | None = None
     entity_category: EntityCategory | None = None
 
 
 def _round_value(value: float | None) -> float | None:
-    """Round a value to one decimal place."""
+    """Round a value to two decimal places."""
     if value is None:
         return None
     return round(value, 2)
@@ -68,9 +67,8 @@ def _filter_energy_glitch(
     entity_description: "MarstekSensorEntityDescription",
     value,
     state: dict,
-) -> object:
+) -> StateType:
     """Filter single-poll firmware glitches on energy counter sensors.
-
     Rejects a value that drops below the last known value unless 3 consecutive
     lower readings are seen (indicating a genuine counter reset).
     ``state`` is a mutable dict with keys ``last_valid`` and ``drop_count``.
@@ -120,7 +118,7 @@ def _usable_capacity(data: dict) -> float | None:
     if rated is None:
         return None
     try:
-        return float(rated) * dod / 100
+        return float(rated) * float(dod) / 100
     except (TypeError, ValueError):
         return None
 
@@ -142,7 +140,6 @@ def _available_until_dod(data: dict) -> float | None:
 
 def _power_battery(data: dict) -> float | None:
     """Estimated net battery power: PV - Grid - Off-grid (W).
-
     Positive = charging, negative = discharging.
     """
     es = data.get("es")
@@ -180,7 +177,6 @@ def _time_to_dod(data: dict) -> float | None:
 
 def _usable_soc(data: dict) -> float | None:
     """Percentage of usable capacity remaining (0–100%).
-
     usable_soc = (soc - min_soc) / dod_percent × 100
     where min_soc = 100 - dod_percent.
     """
@@ -783,7 +779,10 @@ async def async_setup_entry(
                 )
 
             # Add PV sensors if Venus D or Venus A (use normalized base_model)
-            if (device_coordinator.compatibility.base_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]):
+            if device_coordinator.compatibility.base_model in (
+                DEVICE_MODEL_VENUS_D,
+                DEVICE_MODEL_VENUS_A,
+            ):
                 for description in PV_SENSOR_TYPES:
                     entities.append(
                         MarstekMultiDeviceSensor(
@@ -823,7 +822,10 @@ async def async_setup_entry(
             )
 
         # Add PV sensors if Venus D or Venus A (use normalized base_model)
-        if coordinator.compatibility.base_model in [DEVICE_MODEL_VENUS_D, DEVICE_MODEL_VENUS_A]:
+        if coordinator.compatibility.base_model in (
+            DEVICE_MODEL_VENUS_D,
+            DEVICE_MODEL_VENUS_A,
+        ):
             for description in PV_SENSOR_TYPES:
                 entities.append(
                     MarstekSensor(
@@ -852,19 +854,19 @@ class MarstekSensor(CoordinatorEntity, SensorEntity):
         self.entity_description = entity_description
         self._attr_has_entity_name = True
         self._attr_entity_category = entity_description.entity_category
-        self._energy_state: dict = {"last_valid": None, "drop_count": 0}
+        self._energy_state = {"last_valid": None, "drop_count": 0}
         device_mac = entry.data.get("ble_mac") or entry.data.get("wifi_mac")
         self._attr_unique_id = f"{device_mac}_{entity_description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_mac)},
-            name=f"Marstek {entry.data['device']}",
+            name=f"Marstek {entry.data.get('device', 'Device')}",
             manufacturer="Marstek",
             model=entry.data.get("device"),
             sw_version=str(entry.data.get("firmware", "Unknown")),
         )
 
     @property
-    def native_value(self):
+    def native_value(self) -> StateType:
         """Return the state of the sensor."""
         if not self.entity_description.value_fn:
             return None
@@ -900,7 +902,7 @@ class MarstekMultiDeviceSensor(CoordinatorEntity, SensorEntity):
         device_coordinator: MarstekDataUpdateCoordinator,
         entity_description: MarstekSensorEntityDescription,
         device_mac: str,
-        device_data: dict,
+        device_data: dict[str, Any],
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -918,12 +920,12 @@ class MarstekMultiDeviceSensor(CoordinatorEntity, SensorEntity):
             identifiers={(DOMAIN, device_mac)},
             name=f"Marstek {device_data.get('device', 'Device')} {mac_suffix}",
             manufacturer="Marstek",
-            model=device_data.get("device", "Unknown"),
+            model=str(device_data.get("device", "Unknown")),
             sw_version=str(device_data.get("firmware", "Unknown")),
         )
 
     @property
-    def native_value(self):
+    def native_value(self) -> StateType:
         """Return the state of the sensor."""
         if not self.entity_description.value_fn:
             return None
@@ -977,7 +979,7 @@ class MarstekAggregateSensor(CoordinatorEntity, SensorEntity):
         )
 
     @property
-    def native_value(self):
+    def native_value(self) -> StateType:
         """Return the state of the sensor."""
         if self.entity_description.value_fn:
             return _filter_energy_glitch(

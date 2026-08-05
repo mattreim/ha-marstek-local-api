@@ -63,8 +63,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Set up device coordinators
         await coordinator.async_setup()
 
-        # Fetch initial data
-        await coordinator.async_config_entry_first_refresh()
+        for device in entry.data["devices"]:
+            mac = device.get("ble_mac") or device.get("wifi_mac")
+            if mac in coordinator.device_coordinators:
+                coordinator.device_coordinators[mac].data = {
+                    "device": {
+                        "device": device.get("device"),
+                        "ver": device.get("firmware"),
+                    }
+                }
+
+        # Start an initial refresh in the background so Home Assistant startup
+        # is not blocked by multiple UDP requests and retries.
+        hass.async_create_task(coordinator.async_refresh())
 
     else:
         # Single device mode (legacy/backwards compatibility)
@@ -100,8 +111,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config=config,
         )
 
-        # Fetch initial data
-        await coordinator.async_config_entry_first_refresh()
+        coordinator.data = {
+            "device": {
+                "device": entry.data.get("device"),
+                "ver": entry.data.get("firmware"),
+            }
+        }
+
+        # Start an initial refresh in the background so Home Assistant startup
+        # is not blocked by multiple UDP requests and retries.
+        hass.async_create_task(coordinator.async_refresh())
 
     # Store coordinator
     hass.data[DOMAIN][entry.entry_id] = {

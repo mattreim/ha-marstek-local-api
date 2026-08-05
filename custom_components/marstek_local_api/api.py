@@ -42,10 +42,10 @@ _LOGGER = logging.getLogger(__name__)
 
 # Shared transports and protocols per port to ensure all clients on the same port
 # share the same UDP socket and can receive all messages
-_shared_transports = {}
-_shared_protocols = {}
-_transport_refcounts = {}
-_clients_by_port = {}  # Map port -> list of clients
+_shared_transports: dict[int, asyncio.DatagramTransport] = {}
+_shared_protocols: dict[int, MarstekProtocol] = {}
+_transport_refcounts: dict[int, int] = {}
+_clients_by_port: dict[int, list[MarstekUDPClient]] = {}  # Map port -> list of clients
 
 
 class MarstekUDPClient: # pylint: disable=too-many-public-methods
@@ -87,6 +87,7 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
         self._msg_id_counter = 0  # Counter for integer message IDs
         self._recent_frames: deque = deque(maxlen=DIAGNOSTIC_MAX_FRAMES)
         self._send_lock: asyncio.Lock = asyncio.Lock()
+        self._command_lock: asyncio.Lock = asyncio.Lock()
         self._last_send_time: float = 0.0
 
     async def connect(self) -> None:
@@ -95,7 +96,7 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
             _LOGGER.debug("Already connected on port %s", self.port)
             return
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         _LOGGER.info(
             "Connecting UDP socket: local_port=%s, remote_host=%s, remote_port=%s",
@@ -222,7 +223,7 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
 
             # Call all registered handlers from THIS client
             handlers_called = 0
-            for handler in self._handlers:
+            for handler in list(self._handlers):
                 try:
                     # Handler can be sync or async
                     result = handler(message, addr)
@@ -245,6 +246,43 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
         max_attempts: int | None = None,
     ) -> dict | None:
         """Send a command and wait for response."""
+
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+
+        _LOGGER.debug(
+            "Starting command %s to %s",
+            method,
+            self.host,
+        )
+
+        async with self._command_lock:
+            result = await self._send_command(
+                method,
+                params,
+                timeout,
+                max_attempts,
+            )
+
+        elapsed = loop.time() - started
+
+        _LOGGER.debug(
+            "Finished command %s to %s in %.2fs",
+            method,
+            self.host,
+            elapsed,
+        )
+
+        return result
+
+    async def _send_command(
+        self,
+        method: str,
+        params: dict | None = None,
+        timeout: int | None = None,
+        max_attempts: int | None = None,
+    ) -> dict | None:
+        """Internal implementation."""
         if not self._connected:
             await self.connect()
 
@@ -309,6 +347,8 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
             for attempt in range(1, attempt_limit + 1):
                 response_event.clear()
                 response_data.clear()
+                # Let pending UDP callbacks run before sending next packet
+                await asyncio.sleep(0)
                 attempt_started = loop.time()
 
                 try:
@@ -390,8 +430,11 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
                         timeout=True,
                         error="timeout",
                     )
+                    # Allow pending UDP packets to be processed before retry
+                    await asyncio.sleep(0)
+
                     if attempt >= attempt_limit:
-                        _LOGGER.error(
+                        _LOGGER.warning(
                             "Command %s failed after %d attempts (host=%s)",
                             method,
                             attempt_limit,
@@ -447,22 +490,6 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
         if last_exception:
             raise last_exception
 
-        if attempt >= attempt_limit:
-            _LOGGER.error(
-                "Command %s failed after %d attempts (host=%s)",
-                method,
-                attempt_limit,
-                self.host,
-            )
-        else:
-            _LOGGER.debug(
-                "Command %s timed out after %ss (attempt %d/%d, host=%s)",
-                method,
-                effective_timeout,
-                attempt,
-                attempt_limit,
-                self.host,
-            )
         return None
 
     async def _send_to_host(self, message: str) -> None:
@@ -733,14 +760,15 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
             _LOGGER.debug("Broadcasting to networks: %s", broadcast_addrs)
 
             # Broadcast discovery message repeatedly on all networks
-            end_time = asyncio.get_event_loop().time() + timeout
+            loop = asyncio.get_running_loop()
+            end_time = loop.time() + timeout
             message = json.dumps({
                 "id": 0,
                 "method": METHOD_GET_DEVICE,
                 "params": {"ble_mac": "0"}
             })
 
-            while asyncio.get_event_loop().time() < end_time:
+            while loop.time() < end_time:
                 # Broadcast to all networks
                 for broadcast_addr in broadcast_addrs:
                     if self.transport:
@@ -873,9 +901,7 @@ class MarstekUDPClient: # pylint: disable=too-many-public-methods
             {"id": 0, "config": config}
         )
 
-        if result and result.get("set_result"):
-            return True
-        return False
+        return bool(result and result.get("set_result"))
 
     async def set_led(self, enabled: bool) -> bool:
         """Enable or disable status LED."""
@@ -919,8 +945,8 @@ class MarstekProtocol(asyncio.DatagramProtocol):
                     if protocol is self:
                         self.port = port
                         break
-            except Exception:
-                pass
+            except Exception as err:
+                _LOGGER.debug("Unable to determine UDP port: %s", err)
 
         # Dispatch to all clients on this port
         if self.port and self.port in _clients_by_port:

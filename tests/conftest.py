@@ -4,9 +4,11 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 from types import ModuleType, SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -23,8 +25,8 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 # (mirrors the approach in test/test_tool.py)
 # ---------------------------------------------------------------------------
 
-def _make_module(name: str, **attrs: object) -> ModuleType:
-    mod = ModuleType("homeassistant." + name.lstrip("homeassistant."))
+def _make_module(name: str, **attrs):
+    mod = type(sys)(name)
     mod.__dict__.update(attrs)
     return mod
 
@@ -53,11 +55,13 @@ class _BinarySensorDeviceClass:
 
 @dataclass
 class _SensorEntityDescription:
+    """Minimal HA SensorEntityDescription stub."""
     key: str
     name: str | None = None
     native_unit_of_measurement: str | None = None
     device_class: str | None = None
     state_class: str | None = None
+    entity_category: str | None = None
 
 
 @dataclass
@@ -94,7 +98,6 @@ class _UnitOfTime:
 
 class _DataUpdateCoordinator:
     """Stub base class for coordinators."""
-
     def __init__(self, *args, **kwargs):
         if args:
             self.hass = args[0]
@@ -105,9 +108,12 @@ class _DataUpdateCoordinator:
 
 
 class _CoordinatorEntity:
-    """Stub base class to avoid duplicate-base conflicts."""
-    def __init__(self, coordinator=None, *a, **kw):
+    """Minimal HA CoordinatorEntity stub."""
+    def __init__(self, coordinator=None, *args, **kwargs):
         self.coordinator = coordinator
+        super_init = getattr(super(), "__init__", None)
+        if super_init:
+            super_init()
 
 
 class _SensorEntity:
@@ -123,13 +129,92 @@ class _ButtonEntity:
 
 
 class _ConfigFlowBase:
-    """Stub base class for config flows — accepts domain= class keyword."""
+    """Stub base class for config flows."""
     def __init_subclass__(cls, domain=None, **kwargs):
         super().__init_subclass__(**kwargs)
 
+    def __init__(self):
+        self.context = {}
+
+        self.hass = SimpleNamespace(
+            data={},
+            config_entries=SimpleNamespace(
+                async_update_entry=AsyncMock(),
+            ),
+        )
+
+    async def async_show_form(self, **kwargs):
+        return {
+            "type": "form",
+            **kwargs,
+        }
+
+    async def async_create_entry(self, *, title, data):
+        return {
+            "type": "create_entry",
+            "title": title,
+            "data": data,
+        }
+
+    async def async_abort(self, *, reason):
+        return {
+            "type": "abort",
+            "reason": reason,
+        }
+
+    async def async_set_unique_id(self, unique_id):
+        self.unique_id = unique_id
+
+    def _abort_if_unique_id_configured(self, updates=None):
+        return None
+
+    def _async_current_entries(self):
+        return []
+
+
+class _ConfigEntry:
+    def __init__(
+        self,
+        *,
+        entry_id="test",
+        data=None,
+        options=None,
+        title="Marstek",
+    ):
+        self.entry_id = entry_id
+        self.data = data or {}
+        self.options = options or {}
+        self.title = title
+
 
 class _OptionsFlowBase:
-    """Stub base class for options flows."""
+    def __init__(self, config_entry=None):
+        self._config_entry = config_entry
+        self.hass = SimpleNamespace(
+            data={},
+            config_entries=SimpleNamespace(
+                async_update_entry=AsyncMock(),
+            ),
+        )
+
+    async def async_show_form(self, **kwargs):
+        return {
+            "type": "form",
+            **kwargs,
+        }
+
+    async def async_create_entry(self, *, title, data):
+        return {
+            "type": "create_entry",
+            "title": title,
+            "data": data,
+        }
+
+    async def async_abort(self, *, reason):
+        return {
+            "type": "abort",
+            "reason": reason,
+        }
 
 
 class _DeviceInfo(dict):
@@ -179,7 +264,7 @@ def _install_ha_stubs() -> None:
         ),
         "homeassistant.config_entries": _make_module(
             "config_entries",
-            ConfigEntry=object,
+            ConfigEntry=_ConfigEntry,
             ConfigFlow=_ConfigFlowBase,
             OptionsFlow=_OptionsFlowBase,
         ),
@@ -223,13 +308,13 @@ def _install_ha_stubs() -> None:
         ),
         "voluptuous": _make_module(
             "voluptuous",
-            Schema=lambda *a, **kw: None,
+            Schema=lambda x=None, **kw: x,
             Required=lambda x: x,
             Optional=lambda x, **kw: x,
             All=lambda *a: a[0],
             Coerce=lambda t: t,
             Range=lambda **kw: None,
-            In=lambda x: None,
+            In=lambda x: x,
         ),
     }
     # Modules that must always be replaced — the real HA versions have property
@@ -262,6 +347,9 @@ def _load_integration_module(name: str) -> ModuleType:
         pkg.__path__ = [str(INTEGRATION_PATH)]
         sys.modules[package] = pkg
 
+        # Make subpackage accessible as attribute of parent package
+        sys.modules["custom_components"].marstek_local_api = pkg
+
     full_name = f"{package}.{name}"
     if full_name in sys.modules:
         return sys.modules[full_name]
@@ -270,6 +358,9 @@ def _load_integration_module(name: str) -> ModuleType:
     mod = importlib.util.module_from_spec(spec)
     sys.modules[full_name] = mod
     spec.loader.exec_module(mod)
+
+    # Allow monkeypatch/import resolution:
+    setattr(sys.modules[package], name, mod)
     return mod
 
 
